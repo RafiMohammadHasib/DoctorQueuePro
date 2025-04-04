@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import QueueDisplay from '@/components/QueueDisplay';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getSocket } from '@/lib/socket';
+import { getSocket, useSocket } from '@/lib/socket';
 import { QueueWithItems, Queue } from '@shared/schema';
 import { Separator } from '@/components/ui/separator';
 

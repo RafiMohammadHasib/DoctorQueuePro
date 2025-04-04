@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { QueueWithItems, QueueItemWithPatient } from '@shared/schema';
-import { getSocket } from '@/lib/socket';
+import { useSocket, getSocket } from '@/lib/socket';
 import { formatDistanceToNow } from 'date-fns';
 import { queryClient } from '@/lib/queryClient';
 

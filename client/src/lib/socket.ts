@@ -1,5 +1,12 @@
-// Re-export from App.tsx for compatibility
-import { useSocket } from '../App';
+import { createContext, useContext } from 'react';
+
+// Create a socket context
+export const SocketContext = createContext<WebSocket | null>(null);
+
+// Hook to access the socket
+export const useSocket = () => {
+  return useContext(SocketContext);
+};
 
 // Get the WebSocket instance from the window object
 export const getSocket = (): WebSocket => {

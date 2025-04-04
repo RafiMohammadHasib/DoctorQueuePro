@@ -81,7 +81,12 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id };
+    // Ensure required fields are provided
+    const user: User = { 
+      ...insertUser, 
+      id, 
+      role: insertUser.role || 'user' // Default role if not provided
+    };
     this.users.set(id, user);
     return user;
   }
@@ -89,7 +94,15 @@ export class MemStorage implements IStorage {
   // Doctor operations
   async createDoctor(insertDoctor: InsertDoctor): Promise<Doctor> {
     const id = this.doctorIdCounter++;
-    const doctor: Doctor = { ...insertDoctor, id };
+    // Ensure all required fields have appropriate values
+    const doctor: Doctor = { 
+      ...insertDoctor, 
+      id,
+      specialization: insertDoctor.specialization ?? null,
+      roomNumber: insertDoctor.roomNumber ?? null,
+      isAvailable: insertDoctor.isAvailable ?? false,
+      userId: insertDoctor.userId ?? null
+    };
     this.doctors.set(id, doctor);
     return doctor;
   }
@@ -116,7 +129,14 @@ export class MemStorage implements IStorage {
   // Patient operations
   async createPatient(insertPatient: InsertPatient): Promise<Patient> {
     const id = this.patientIdCounter++;
-    const patient: Patient = { ...insertPatient, id };
+    // Ensure all required fields have appropriate values
+    const patient: Patient = { 
+      ...insertPatient, 
+      id,
+      age: insertPatient.age ?? null,
+      gender: insertPatient.gender ?? null,
+      email: insertPatient.email ?? null
+    };
     this.patients.set(id, patient);
     return patient;
   }
@@ -138,7 +158,12 @@ export class MemStorage implements IStorage {
   // Queue operations
   async createQueue(insertQueue: InsertQueue): Promise<Queue> {
     const id = this.queueIdCounter++;
-    const queue: Queue = { ...insertQueue, id };
+    // Ensure all required fields have appropriate values
+    const queue: Queue = { 
+      ...insertQueue, 
+      id,
+      doctorId: insertQueue.doctorId ?? null
+    };
     this.queues.set(id, queue);
     return queue;
   }
@@ -161,12 +186,18 @@ export class MemStorage implements IStorage {
   async createQueueItem(insertQueueItem: InsertQueueItem): Promise<QueueItem> {
     const id = this.queueItemIdCounter++;
     const timeAdded = new Date();
+    // Ensure all required fields have appropriate values
     const queueItem: QueueItem = { 
       ...insertQueueItem, 
       id, 
       timeAdded,
       startTime: null,
-      endTime: null
+      endTime: null,
+      status: insertQueueItem.status || 'waiting',
+      priorityLevel: insertQueueItem.priorityLevel || 'normal',
+      appointmentType: insertQueueItem.appointmentType || 'new',
+      estimatedWaitTime: insertQueueItem.estimatedWaitTime ?? null,
+      notes: insertQueueItem.notes ?? null
     };
     this.queueItems.set(id, queueItem);
     return queueItem;
