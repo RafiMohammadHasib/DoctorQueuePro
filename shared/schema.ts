@@ -1,22 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-
-// User schema
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").notNull().default("staff"),
-  name: text("name").notNull(),
-});
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  role: true,
-  name: true,
-});
 
 // Priority level enum
 export const priorityLevelEnum = pgEnum("priority_level", ["normal", "priority", "urgent"]);
@@ -27,7 +12,15 @@ export const statusEnum = pgEnum("status", ["waiting", "in-progress", "completed
 // Appointment type enum
 export const appointmentTypeEnum = pgEnum("appointment_type", ["new", "followup", "urgent"]);
 
-// Doctor schema
+// Schema definitions
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  role: text("role").notNull().default("staff"),
+  name: text("name").notNull(),
+});
+
 export const doctors = pgTable("doctors", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -37,15 +30,6 @@ export const doctors = pgTable("doctors", {
   userId: integer("user_id").references(() => users.id),
 });
 
-export const insertDoctorSchema = createInsertSchema(doctors).pick({
-  name: true,
-  specialization: true,
-  roomNumber: true,
-  isAvailable: true,
-  userId: true,
-});
-
-// Patient schema
 export const patients = pgTable("patients", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -55,27 +39,12 @@ export const patients = pgTable("patients", {
   email: text("email"),
 });
 
-export const insertPatientSchema = createInsertSchema(patients).pick({
-  name: true,
-  age: true,
-  gender: true,
-  phoneNumber: true,
-  email: true,
-});
-
-// Queue schema
 export const queues = pgTable("queues", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   doctorId: integer("doctor_id").references(() => doctors.id),
 });
 
-export const insertQueueSchema = createInsertSchema(queues).pick({
-  name: true,
-  doctorId: true,
-});
-
-// Queue Items schema
 export const queueItems = pgTable("queue_items", {
   id: serial("id").primaryKey(),
   queueId: integer("queue_id").references(() => queues.id).notNull(),
@@ -88,6 +57,74 @@ export const queueItems = pgTable("queue_items", {
   startTime: timestamp("start_time"),
   endTime: timestamp("end_time"),
   notes: text("notes"),
+});
+
+// Relations
+export const usersRelations = relations(users, ({ one }) => ({
+  doctor: one(doctors, {
+    fields: [users.id],
+    references: [doctors.userId]
+  }),
+}));
+
+export const doctorsRelations = relations(doctors, ({ one, many }) => ({
+  user: one(users, {
+    fields: [doctors.userId],
+    references: [users.id]
+  }),
+  queues: many(queues)
+}));
+
+export const patientsRelations = relations(patients, ({ many }) => ({
+  queueItems: many(queueItems)
+}));
+
+export const queuesRelations = relations(queues, ({ one, many }) => ({
+  doctor: one(doctors, {
+    fields: [queues.doctorId],
+    references: [doctors.id]
+  }),
+  items: many(queueItems)
+}));
+
+export const queueItemsRelations = relations(queueItems, ({ one }) => ({
+  queue: one(queues, {
+    fields: [queueItems.queueId],
+    references: [queues.id]
+  }),
+  patient: one(patients, {
+    fields: [queueItems.patientId],
+    references: [patients.id]
+  })
+}));
+
+// Insert schemas
+export const insertUserSchema = createInsertSchema(users).pick({
+  username: true,
+  password: true,
+  role: true,
+  name: true,
+});
+
+export const insertDoctorSchema = createInsertSchema(doctors).pick({
+  name: true,
+  specialization: true,
+  roomNumber: true,
+  isAvailable: true,
+  userId: true,
+});
+
+export const insertPatientSchema = createInsertSchema(patients).pick({
+  name: true,
+  age: true,
+  gender: true,
+  phoneNumber: true,
+  email: true,
+});
+
+export const insertQueueSchema = createInsertSchema(queues).pick({
+  name: true,
+  doctorId: true,
 });
 
 export const insertQueueItemSchema = createInsertSchema(queueItems).pick({
