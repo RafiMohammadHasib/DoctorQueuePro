@@ -1,0 +1,363 @@
+// queueService.js - Core queue management logic
+
+const { Patient, Doctor, Queue, QueueItem } = require('../models');
+const redisClient = require('../config/redis');
+const notificationService = require('./notificationService');
+
+/**
+ * Add a patient to the queue
+ * @param {Object} patientData - Patient registration data
+ * @param {number} doctorId - Doctor ID for queue assignment
+ * @returns {Object} Queue position info
+ */
+exports.addPatientToQueue = async (patientData, doctorId) => {
+  try {
+    // Check if patient already exists in database
+    let patient = await Patient.findOne({ 
+      where: { 
+        phoneNumber: patientData.phoneNumber 
+      }
+    });
+    
+    // If patient doesn't exist, create new patient record
+    if (!patient) {
+      patient = await Patient.create({
+        name: patientData.name,
+        age: patientData.age,
+        phoneNumber: patientData.phoneNumber,
+        email: patientData.email,
+        appointmentType: patientData.appointmentType
+      });
+    }
+    
+    // Get doctor's queue
+    const doctor = await Doctor.findByPk(doctorId, {
+      include: [{ model: Queue }]
+    });
+    
+    if (!doctor) {
+      throw new Error('Doctor not found');
+    }
+    
+    // Get plan limits
+    const plan = await doctor.getPlan();
+    const currentDailyCount = await QueueItem.count({
+      where: {
+        queueId: doctor.queue.id,
+        createdAt: {
+          [Op.gte]: new Date().setHours(0, 0, 0, 0)
+        }
+      }
+    });
+    
+    // Check if exceeding daily patient limit
+    if (plan.name === 'Basic' && currentDailyCount >= 50) {
+      throw new Error('Daily patient limit reached for Basic plan');
+    } else if (plan.name === 'Pro' && currentDailyCount >= 200) {
+      throw new Error('Daily patient limit reached for Pro plan');
+    }
+    
+    // Calculate estimated wait time based on average time per patient
+    const avgTimePerPatient = await calculateAverageConsultationTime(doctorId);
+    const queuePosition = await QueueItem.count({
+      where: { 
+        queueId: doctor.queue.id,
+        status: 'waiting'
+      }
+    });
+    
+    const estimatedWaitTime = queuePosition * avgTimePerPatient;
+    
+    // Create queue item
+    const queueItem = await QueueItem.create({
+      patientId: patient.id,
+      queueId: doctor.queue.id,
+      status: 'waiting',
+      priorityLevel: patientData.isUrgent ? 'high' : 'normal',
+      estimatedWaitTime
+    });
+    
+    // Store in Redis for fast access
+    await redisClient.hSet(
+      `queue:${doctor.queue.id}`,
+      patient.id.toString(),
+      JSON.stringify({
+        queueItemId: queueItem.id,
+        patientName: patient.name,
+        patientId: patient.id,
+        position: queuePosition + 1,
+        estimatedWaitTime,
+        status: 'waiting'
+      })
+    );
+    
+    // Broadcast queue update via WebSockets
+    global.io.to(`queue-${doctor.queue.id}`).emit('queue-update', {
+      action: 'add',
+      queueId: doctor.queue.id
+    });
+    
+    // Send initial notification
+    if (patient.email || patient.phoneNumber) {
+      await notificationService.sendQueueConfirmation(
+        patient,
+        queuePosition + 1,
+        estimatedWaitTime,
+        doctor
+      );
+    }
+    
+    return {
+      queueItemId: queueItem.id,
+      queuePosition: queuePosition + 1,
+      estimatedWaitTime,
+      patient: {
+        id: patient.id,
+        name: patient.name
+      }
+    };
+  } catch (error) {
+    console.error('Error adding patient to queue:', error);
+    throw error;
+  }
+};
+
+/**
+ * Call the next patient in the queue
+ * @param {number} doctorId - The doctor's ID
+ * @returns {Object} Next patient information
+ */
+exports.callNextPatient = async (doctorId) => {
+  try {
+    const doctor = await Doctor.findByPk(doctorId, {
+      include: [{ model: Queue }]
+    });
+    
+    if (!doctor) {
+      throw new Error('Doctor not found');
+    }
+    
+    // Find the next patient in queue, prioritizing urgent cases
+    const nextInQueue = await QueueItem.findOne({
+      where: {
+        queueId: doctor.queue.id,
+        status: 'waiting'
+      },
+      order: [
+        ['priorityLevel', 'DESC'], // High priority first
+        ['createdAt', 'ASC']       // Then first come, first served
+      ],
+      include: [{ model: Patient }]
+    });
+    
+    if (!nextInQueue) {
+      return { message: 'No patients in queue' };
+    }
+    
+    // Update queue item status
+    await nextInQueue.update({
+      status: 'in-progress',
+      startTime: new Date()
+    });
+    
+    // Update Redis
+    await redisClient.hSet(
+      `queue:${doctor.queue.id}`,
+      nextInQueue.patientId.toString(),
+      JSON.stringify({
+        queueItemId: nextInQueue.id,
+        patientName: nextInQueue.patient.name,
+        patientId: nextInQueue.patientId,
+        position: 0, // Now being served
+        status: 'in-progress'
+      })
+    );
+    
+    // Update all other positions in Redis and calculate new wait times
+    await updateQueuePositions(doctor.queue.id);
+    
+    // Broadcast queue update
+    global.io.to(`queue-${doctor.queue.id}`).emit('queue-update', {
+      action: 'next',
+      queueId: doctor.queue.id,
+      currentPatient: {
+        id: nextInQueue.patient.id,
+        name: nextInQueue.patient.name,
+        age: nextInQueue.patient.age,
+        appointmentType: nextInQueue.patient.appointmentType
+      }
+    });
+    
+    // Notify upcoming patients
+    await notifyUpcomingPatients(doctor.queue.id);
+    
+    return {
+      patient: {
+        id: nextInQueue.patient.id,
+        name: nextInQueue.patient.name,
+        age: nextInQueue.patient.age,
+        phoneNumber: nextInQueue.patient.phoneNumber,
+        appointmentType: nextInQueue.patient.appointmentType
+      },
+      queueItemId: nextInQueue.id
+    };
+  } catch (error) {
+    console.error('Error calling next patient:', error);
+    throw error;
+  }
+};
+
+/**
+ * Calculate the average consultation time for a doctor
+ * @param {number} doctorId - The doctor's ID
+ * @returns {number} Average time in minutes
+ */
+const calculateAverageConsultationTime = async (doctorId) => {
+  try {
+    const doctor = await Doctor.findByPk(doctorId, {
+      include: [{ model: Queue }]
+    });
+    
+    // Get completed consultations from the last 7 days
+    const completedItems = await QueueItem.findAll({
+      where: {
+        queueId: doctor.queue.id,
+        status: 'completed',
+        startTime: { [Op.ne]: null },
+        endTime: { [Op.ne]: null },
+        updatedAt: {
+          [Op.gte]: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        }
+      }
+    });
+    
+    if (completedItems.length === 0) {
+      return 15; // Default 15 minutes if no data
+    }
+    
+    // Calculate average duration in minutes
+    const totalMinutes = completedItems.reduce((sum, item) => {
+      const durationMs = item.endTime - item.startTime;
+      return sum + (durationMs / 60000); // Convert ms to minutes
+    }, 0);
+    
+    return Math.ceil(totalMinutes / completedItems.length);
+  } catch (error) {
+    console.error('Error calculating average time:', error);
+    return 15; // Default fallback
+  }
+};
+
+/**
+ * Update all queue positions after calling next patient
+ * @param {number} queueId - The queue ID
+ */
+const updateQueuePositions = async (queueId) => {
+  try {
+    // Get all waiting patients in order
+    const waitingItems = await QueueItem.findAll({
+      where: {
+        queueId: queueId,
+        status: 'waiting'
+      },
+      order: [
+        ['priorityLevel', 'DESC'],
+        ['createdAt', 'ASC']
+      ],
+      include: [{ model: Patient }]
+    });
+    
+    const avgTime = await calculateAverageConsultationTime(
+      await Queue.findByPk(queueId).then(q => q.doctorId)
+    );
+    
+    // Update positions in Redis
+    for (let i = 0; i < waitingItems.length; i++) {
+      const item = waitingItems[i];
+      const position = i + 1;
+      const estimatedWaitTime = position * avgTime;
+      
+      await redisClient.hSet(
+        `queue:${queueId}`,
+        item.patientId.toString(),
+        JSON.stringify({
+          queueItemId: item.id,
+          patientName: item.patient.name,
+          patientId: item.patientId,
+          position: position,
+          estimatedWaitTime,
+          status: 'waiting'
+        })
+      );
+      
+      // Update in database too
+      await item.update({
+        estimatedWaitTime
+      });
+    }
+  } catch (error) {
+    console.error('Error updating queue positions:', error);
+  }
+};
+
+/**
+ * Notify patients who are coming up soon in the queue
+ * @param {number} queueId - The queue ID
+ */
+const notifyUpcomingPatients = async (queueId) => {
+  try {
+    // Get patients close to their turn (next 2-3 patients)
+    const upcomingItems = await QueueItem.findAll({
+      where: {
+        queueId: queueId,
+        status: 'waiting'
+      },
+      order: [
+        ['priorityLevel', 'DESC'],
+        ['createdAt', 'ASC']
+      ],
+      limit: 3,
+      include: [{ model: Patient }]
+    });
+    
+    // Get doctor info for notification
+    const queue = await Queue.findByPk(queueId);
+    const doctor = await Doctor.findByPk(queue.doctorId);
+    
+    // Notify the next patient
+    if (upcomingItems.length > 0) {
+      const nextPatient = upcomingItems[0];
+      
+      // Send notification that they're next
+      await notificationService.sendUpNextNotification(
+        nextPatient.patient,
+        doctor
+      );
+      
+      // If we have Pro plan or above, send SMS notifications
+      const plan = await doctor.getPlan();
+      if (plan.name !== 'Basic' && nextPatient.patient.phoneNumber) {
+        await notificationService.sendSmsNotification(
+          nextPatient.patient.phoneNumber,
+          `You're next in line to see Dr. ${doctor.name}. Please be ready.`
+        );
+      }
+    }
+    
+    // If on Pro plan, notify the second patient as well
+    if (upcomingItems.length > 1) {
+      const plan = await doctor.getPlan();
+      if (plan.name !== 'Basic') {
+        const secondPatient = upcomingItems[1];
+        await notificationService.sendSoonNotification(
+          secondPatient.patient,
+          2,
+          secondPatient.estimatedWaitTime,
+          doctor
+        );
+      }
+    }
+  } catch (error) {
+    console.error('Error notifying upcoming patients:', error);
+  }
+};
