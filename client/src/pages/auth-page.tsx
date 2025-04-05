@@ -39,11 +39,12 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  name: z.string().min(2, 'Full name must be at least 2 characters'),
   username: z.string().min(3, 'Username must be at least 3 characters'),
   email: z.string().email('Please enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
+  role: z.string().default('user'),
 }).refine(data => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
@@ -89,11 +90,12 @@ const AuthPage: React.FC = () => {
   const registerForm = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      fullName: '',
+      name: '',
       username: '',
       email: '',
       password: '',
       confirmPassword: '',
+      role: 'user',
     },
   });
 
@@ -286,7 +288,7 @@ const AuthPage: React.FC = () => {
                     <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
                       <FormField
                         control={registerForm.control}
-                        name="fullName"
+                        name="name"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-white">Full Name</FormLabel>

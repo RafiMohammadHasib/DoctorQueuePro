@@ -113,7 +113,7 @@ const QueueDisplay: React.FC<QueueDisplayProps> = ({ queue, isLoading, displayMo
 
             {/* Current patient section */}
             <div className="bg-primary-500 p-4 rounded-lg mb-4">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-primary-100">NOW SERVING</h3>
                   <div className="text-white text-xl font-bold mt-1">
@@ -121,9 +121,54 @@ const QueueDisplay: React.FC<QueueDisplayProps> = ({ queue, isLoading, displayMo
                       ? currentPatient.patient.name 
                       : 'No patient currently being served'}
                   </div>
+                  {currentPatient && (
+                    <div className="mt-2">
+                      <div className="flex items-center text-primary-100 text-sm">
+                        <span className="font-medium mr-1">Case Type:</span> 
+                        <span className="capitalize">{currentPatient.appointmentType}</span>
+                        {currentPatient.priorityLevel !== 'normal' && (
+                          <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                            currentPatient.priorityLevel === 'urgent'
+                              ? 'bg-red-700 text-white'
+                              : 'bg-amber-700 text-white'
+                          }`}>
+                            {currentPatient.priorityLevel.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-primary-100 text-sm mt-1">
+                        <span className="font-medium">Started:</span> {
+                          currentPatient.startTime 
+                            ? new Date(currentPatient.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                            : 'Just now'
+                        }
+                      </div>
+                      {currentPatient.startTime && (
+                        <div className="text-primary-100 text-sm mt-1">
+                          <span className="font-medium">Est. Completion:</span> {
+                            (() => {
+                              if (!currentPatient.startTime) return 'Unknown';
+                              const startTime = new Date(currentPatient.startTime);
+                              // Assume average consultation takes 15 minutes if no estimated time available
+                              const duration = currentPatient.estimatedWaitTime || 15;
+                              const estimatedEndTime = new Date(startTime.getTime() + duration * 60000);
+                              return estimatedEndTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                            })()
+                          }
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="text-4xl font-mono font-bold">
-                  {currentPatient ? '01' : '--'}
+                <div className="flex flex-col items-center">
+                  <div className="text-4xl font-mono font-bold mb-2">
+                    {currentPatient ? '01' : '--'}
+                  </div>
+                  {currentPatient && currentPatient.startTime && (
+                    <div className="bg-primary-700 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      In Progress
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
