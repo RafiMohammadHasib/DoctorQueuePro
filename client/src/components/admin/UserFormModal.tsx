@@ -2,21 +2,18 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation } from '@tanstack/react-query';
-import { apiRequest, queryClient } from '@/lib/queryClient';
-import { X, Eye, EyeOff, Loader2 } from 'lucide-react';
-
+import { X, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -25,16 +22,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import FormError from '@/components/ui/FormError';
-import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Label } from "@/components/ui/label";
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 // Form schema
 const userFormSchema = z.object({
-  fullName: z.string().min(2, "Full name must be at least 2 characters"),
-  username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username cannot exceed 20 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["admin", "doctor", "receptionist", "user"])
+  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  role: z.enum(['admin', 'doctor', 'receptionist', 'user'], {
+    required_error: 'Please select a role',
+  }),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -45,13 +43,14 @@ interface UserFormModalProps {
   onSuccess?: () => void;
 }
 
-const UserFormModal: React.FC<UserFormModalProps> = ({
-  isOpen,
+const UserFormModal: React.FC<UserFormModalProps> = ({ 
+  isOpen, 
   onClose,
-  onSuccess
+  onSuccess 
 }) => {
-  const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
@@ -59,61 +58,75 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
       fullName: '',
       username: '',
       password: '',
-      role: 'user'
-    }
+      role: 'user',
+    },
   });
 
-  const createUserMutation = useMutation({
-    mutationFn: async (data: UserFormValues) => {
+  const onSubmit = async (data: UserFormValues) => {
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
       const response = await apiRequest('POST', '/api/users', data);
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create user');
       }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+
+      // Reset form and close modal
       form.reset();
-      setServerError(null);
-      if (onSuccess) onSuccess();
-      onClose();
-    },
-    onError: (error: Error) => {
-      if (error.message.includes('already') || error.message.includes('taken')) {
-        setServerError('Username already exists. Please choose a different username.');
-      } else {
-        setServerError(error.message || 'An unexpected error occurred');
+      
+      // Invalidate users query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      
+      if (onSuccess) {
+        onSuccess();
       }
+      
+      onClose();
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('An unknown error occurred');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-  });
+  };
 
-  const handleSubmit = form.handleSubmit((data) => {
-    setServerError(null);
-    createUserMutation.mutate(data);
-  });
-
-  const roleOptions = [
-    { value: 'admin', label: 'Administrator', description: 'Full access to all system features' },
-    { value: 'doctor', label: 'Doctor', description: 'Access to patients and queue management' },
-    { value: 'receptionist', label: 'Receptionist', description: 'Patient registration and queue management' },
-    { value: 'user', label: 'Regular User', description: 'Basic access to the system' }
-  ];
+  const handleClose = () => {
+    form.reset();
+    setError(null);
+    onClose();
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl">Add New User</DialogTitle>
-          <DialogDescription>
-            Create a new user account with appropriate permissions
-          </DialogDescription>
+          <DialogTitle className="text-xl font-semibold">Add New User</DialogTitle>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute right-4 top-4" 
+            onClick={handleClose}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
         </DialogHeader>
 
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-500 rounded p-3 mb-4 flex items-start">
+            <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         <Form {...form}>
-          <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            {serverError && <FormError message={serverError} />}
-            
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <FormField
               control={form.control}
               name="fullName"
@@ -121,7 +134,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
                 <FormItem>
                   <FormLabel>Full Name</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="John Doe" autoComplete="name" />
+                    <Input {...field} placeholder="John Doe" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -135,11 +148,11 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
                 <FormItem>
                   <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="johndoe" autoComplete="username" />
+                    <Input {...field} placeholder="johndoe" />
                   </FormControl>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <FormDescription className="text-xs text-slate-500">
                     Used for login to the system
-                  </p>
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -151,32 +164,27 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Password</FormLabel>
-                  <div className="relative">
-                    <FormControl>
+                  <FormControl>
+                    <div className="relative">
                       <Input 
                         {...field} 
                         type={showPassword ? "text" : "password"} 
-                        placeholder="••••••••" 
-                        autoComplete="new-password"
+                        placeholder="••••••" 
                       />
-                    </FormControl>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 py-2 text-muted-foreground"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                      <span className="sr-only">
-                        {showPassword ? "Hide password" : "Show password"}
-                      </span>
-                    </Button>
-                  </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3 py-2"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <span className="sr-only">
+                          {showPassword ? "Hide password" : "Show password"}
+                        </span>
+                      </Button>
+                    </div>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -186,61 +194,46 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
               control={form.control}
               name="role"
               render={({ field }) => (
-                <FormItem className="space-y-1">
+                <FormItem>
                   <FormLabel>User Role</FormLabel>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    This role determines the user's permissions in the system
-                  </p>
                   <FormControl>
                     <RadioGroup
+                      value={field.value}
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      className="flex flex-col space-y-1"
+                      className="grid grid-cols-1 gap-2"
                     >
-                      {roleOptions.map((role) => (
-                        <div key={role.value} className="flex items-center space-x-2">
-                          <RadioGroupItem value={role.value} id={`role-${role.value}`} />
-                          <Label 
-                            htmlFor={`role-${role.value}`}
-                            className="flex items-center cursor-pointer"
-                          >
-                            <span className="font-medium">{role.label}</span>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="ml-2 text-xs text-muted-foreground">ℹ️</span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="text-xs">{role.description}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </Label>
-                        </div>
-                      ))}
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="admin" id="admin" />
+                        <Label htmlFor="admin" className="font-normal">Administrator</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="doctor" id="doctor" />
+                        <Label htmlFor="doctor" className="font-normal">Doctor</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="receptionist" id="receptionist" />
+                        <Label htmlFor="receptionist" className="font-normal">Receptionist</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="user" id="user" />
+                        <Label htmlFor="user" className="font-normal">Regular User</Label>
+                      </div>
                     </RadioGroup>
                   </FormControl>
+                  <FormDescription className="text-xs text-slate-500">
+                    This role determines the user's permissions in the system
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
+            <DialogFooter className="mt-6 gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                disabled={createUserMutation.isPending}
-              >
-                {createUserMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                    Creating...
-                  </>
-                ) : (
-                  'Add User'
-                )}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Adding User...' : 'Add User'}
               </Button>
             </DialogFooter>
           </form>

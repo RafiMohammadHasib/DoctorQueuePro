@@ -1,596 +1,501 @@
-import { useState, useEffect } from "react";
-import { useLocation, useSearch } from "wouter";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState, useEffect } from 'react';
+import { useLocation, Link } from 'wouter';
+import { motion } from 'framer-motion';
+import { useAuth } from '@/hooks/use-auth';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { 
+  Clock, 
+  User, 
+  Lock, 
+  Mail, 
+  ArrowRight, 
+  Eye, 
+  EyeOff, 
+  Shield,
+  ArrowLeft,
+  Loader2 
+} from 'lucide-react';
 
-import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Loader2, Mail } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import FormError from '@/components/ui/FormError';
 
+// Form schemas
 const loginSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  username: z.string().min(1, 'Username is required'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 const registerSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters"),
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["admin", "doctor", "receptionist"]),
-});
-
-const verificationSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  code: z.string().min(6, "Verification code must be at least 6 characters"),
+  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  email: z.string().email('Please enter a valid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 type RegisterFormValues = z.infer<typeof registerSchema>;
-type VerificationFormValues = z.infer<typeof verificationSchema>;
 
-export default function AuthPage() {
-  const [activeTab, setActiveTab] = useState("login");
-  const [_, navigate] = useLocation();
-  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
-  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+const AuthPage: React.FC = () => {
+  const [location, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState<string>('login');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const { user, loginMutation, registerMutation } = useAuth();
-  const { toast } = useToast();
-  const search = useSearch();
-  
-  // Check for verification status in query params
+
+  // Get tab from URL query param
   useEffect(() => {
-    const params = new URLSearchParams(search);
-    const status = params.get("status");
-    if (status === "success") {
-      setVerificationStatus("success");
-    } else if (status === "pending") {
-      setVerificationStatus("pending");
-    } else if (status === "error") {
-      setVerificationStatus("error");
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab === 'register') {
+      setActiveTab('register');
     }
-  }, [search]);
-
-  // Handle login errors specifically for verification issues
-  useEffect(() => {
-    if (loginMutation.error) {
-      if (loginMutation.error.message.includes("verify your email")) {
-        setVerificationStatus("pending");
-      }
-    }
-  }, [loginMutation.error]);
-  
-  // Effect to handle registration success to show verification needed alert and switch to verification tab
-  useEffect(() => {
-    if (registerMutation.isSuccess) {
-      setVerificationStatus("pending");
-      // Auto-fill email field in verification form with the registered email
-      const registeredEmail = (document.getElementById('register-email') as HTMLInputElement)?.value;
-      if (registeredEmail) {
-        setTimeout(() => {
-          const verifyEmailInput = document.getElementById('verify-email') as HTMLInputElement;
-          if (verifyEmailInput) {
-            verifyEmailInput.value = registeredEmail;
-          }
-        }, 100);
-      }
-      // Switch to verification tab
-      setActiveTab("verify");
-    }
-  }, [registerMutation.isSuccess]);
-
-  // Redirect if already logged in - moved after all hooks are called
-  const {
-    register: registerLogin,
-    handleSubmit: handleLoginSubmit,
-    formState: { errors: loginErrors },
-  } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      username: "",
-      password: "",
-    },
-  });
-
-  const {
-    register: registerSignup,
-    handleSubmit: handleRegisterSubmit,
-    formState: { errors: registerErrors },
-  } = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      name: "",
-      username: "",
-      email: "",
-      password: "",
-      role: "receptionist",
-    },
-  });
-
-  const {
-    register: registerVerification,
-    handleSubmit: handleVerificationSubmit,
-    formState: { errors: verificationErrors },
-  } = useForm<VerificationFormValues>({
-    resolver: zodResolver(verificationSchema),
-    defaultValues: {
-      email: "",
-      code: "",
-    },
-  });
-
-  const onLogin = async (data: LoginFormValues) => {
-    loginMutation.mutate(data);
-  };
-
-  const onRegister = async (data: RegisterFormValues) => {
-    registerMutation.mutate(data);
-  };
-
-  const onVerifyEmail = async (data: VerificationFormValues) => {
-    try {
-      setIsVerifyingEmail(true);
-      
-      const response = await fetch(`/api/verify-email/code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        toast({
-          title: "Email Verified",
-          description: "Your email has been successfully verified.",
-          variant: "default",
-        });
-        setVerificationStatus("success");
-        setIsVerifyingEmail(false);
-        setActiveTab("login");
-      } else {
-        const errorData = await response.json();
-        toast({
-          title: "Verification Failed",
-          description: errorData.message || "Failed to verify your email. Please check your verification code.",
-          variant: "destructive",
-        });
-        setVerificationStatus("error");
-        setIsVerifyingEmail(false);
-      }
-    } catch (error) {
-      toast({
-        title: "Verification Error",
-        description: "An error occurred during verification. Please try again.",
-        variant: "destructive",
-      });
-      setIsVerifyingEmail(false);
-    }
-  };
-
-  // Resend verification email
-  const handleResendVerification = async (email: string) => {
-    if (!email) {
-      toast({
-        title: "Email Required",
-        description: "Please enter your email address to resend verification.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      const response = await fetch('/api/resend-verification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-      
-      if (response.ok) {
-        toast({
-          title: "Verification Email Sent",
-          description: "A new verification email has been sent to your email address.",
-          variant: "default",
-        });
-      } else {
-        const errorData = await response.json();
-        toast({
-          title: "Failed to Resend",
-          description: errorData.message || "Failed to resend verification email. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An error occurred while resending the verification email.",
-        variant: "destructive",
-      });
-    }
-  };
+  }, []);
 
   // Redirect if already logged in
-  if (user) {
-    navigate("/");
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      setLocation('/');
+    }
+  }, [user, setLocation]);
+
+  // Login form
+  const loginForm = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: '',
+      password: '',
+    },
+  });
+
+  // Register form
+  const registerForm = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      fullName: '',
+      username: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
+
+  const onLoginSubmit = (data: LoginFormValues) => {
+    setServerError(null);
+    loginMutation.mutate(data, {
+      onError: (error) => {
+        setServerError('Invalid username or password. Please try again.');
+      }
+    });
+  };
+
+  const onRegisterSubmit = (data: RegisterFormValues) => {
+    setServerError(null);
+    const { confirmPassword, ...registerData } = data;
+    registerMutation.mutate(registerData, {
+      onError: (error) => {
+        setServerError(error.message || 'Registration failed. Please try again.');
+      }
+    });
+  };
+
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setServerError(null);
+    // Update URL without navigating
+    const url = new URL(window.location.href);
+    if (value === 'register') {
+      url.searchParams.set('tab', 'register');
+    } else {
+      url.searchParams.delete('tab');
+    }
+    window.history.replaceState({}, '', url.toString());
+  };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      <div className="flex-1 flex items-center justify-center p-6">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">
-              Queue Management System
-            </CardTitle>
-            <CardDescription className="text-center">
-              Sign in to access your account
-            </CardDescription>
-            
-            {verificationStatus === "success" && (
-              <Alert className="mt-4 bg-green-50 border-green-200">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertTitle className="text-green-800">Email Verified</AlertTitle>
-                <AlertDescription className="text-green-700">
-                  Your email has been successfully verified. You can now log in to your account.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {verificationStatus === "pending" && (
-              <Alert className="mt-4 bg-amber-50 border-amber-200">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <AlertTitle className="text-amber-800">Verification Required</AlertTitle>
-                <AlertDescription className="text-amber-700">
-                  Please check your email for a verification link. You need to verify your email before logging in.
-                  <Button 
-                    variant="link" 
-                    className="text-amber-700 p-0 h-auto font-semibold hover:text-amber-800"
-                    onClick={() => setActiveTab("verify")}
-                  >
-                    Enter verification code manually
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {verificationStatus === "error" && (
-              <Alert className="mt-4 bg-red-50 border-red-200">
-                <AlertCircle className="h-4 w-4 text-red-600" />
-                <AlertTitle className="text-red-800">Verification Failed</AlertTitle>
-                <AlertDescription className="text-red-700">
-                  We couldn't verify your email. The link may have expired or is invalid. Please try again or contact support.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardHeader>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="register">Register</TabsTrigger>
-              <TabsTrigger value="verify">Verify Email</TabsTrigger>
+    <div className="min-h-screen bg-gradient-to-b from-blue-700 to-blue-900 flex flex-col">
+      {/* Top Navigation */}
+      <header className="container mx-auto px-4 py-5">
+        <nav className="flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="bg-white/10 backdrop-blur-sm p-2 rounded-lg">
+              <Clock className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-white">QueueMaster</span>
+          </Link>
+          <Link href="/">
+            <Button variant="ghost" className="text-white hover:bg-white/10">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Home
+            </Button>
+          </Link>
+        </nav>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-1 container mx-auto px-4 flex flex-col md:flex-row items-center justify-center gap-10 py-10">
+        {/* Left column - Auth Card */}
+        <motion.div
+          className="w-full max-w-md"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Tabs 
+            value={activeTab} 
+            onValueChange={handleTabChange}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2 mb-8">
+              <TabsTrigger value="login" className="text-lg py-3">Log In</TabsTrigger>
+              <TabsTrigger value="register" className="text-lg py-3">Sign Up</TabsTrigger>
             </TabsList>
+
+            {/* Login Tab */}
             <TabsContent value="login">
-              <form onSubmit={handleLoginSubmit(onLogin)}>
-                <CardContent className="space-y-4 pt-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-username">Username</Label>
-                    <Input
-                      id="login-username"
-                      {...registerLogin("username")}
-                      placeholder="Enter your username"
-                    />
-                    {loginErrors.username && (
-                      <p className="text-sm text-red-500">
-                        {loginErrors.username.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Password</Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      {...registerLogin("password")}
-                      placeholder="Enter your password"
-                    />
-                    {loginErrors.password && (
-                      <p className="text-sm text-red-500">
-                        {loginErrors.password.message}
-                      </p>
-                    )}
-                  </div>
+              <Card className="border-0 shadow-xl bg-white/10 backdrop-blur-md text-white">
+                <CardHeader className="space-y-1">
+                  <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+                  <CardDescription className="text-white/70">
+                    Enter your credentials to access your account
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {serverError && <FormError message={serverError} />}
+                  <Form {...loginForm}>
+                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                      <FormField
+                        control={loginForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-white">Username</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-5 w-5" />
+                                <Input 
+                                  {...field} 
+                                  placeholder="Enter your username" 
+                                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-blue-400"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-red-300" />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={loginForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-white">Password</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-5 w-5" />
+                                <Input 
+                                  {...field} 
+                                  type={showPassword ? "text" : "password"} 
+                                  placeholder="Enter your password" 
+                                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-blue-400"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-0 h-full px-3 py-2 text-white/70 hover:text-white"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                >
+                                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  <span className="sr-only">
+                                    {showPassword ? "Hide password" : "Show password"}
+                                  </span>
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-red-300" />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex justify-end">
+                        <Button 
+                          type="submit" 
+                          className="w-full bg-white text-blue-700 hover:bg-white/90"
+                          disabled={loginMutation.isPending}
+                        >
+                          {loginMutation.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Logging in...
+                            </>
+                          ) : (
+                            <>
+                              Log In
+                              <ArrowRight className="ml-2 h-4 w-4" />
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
                 </CardContent>
-                <CardFooter>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={loginMutation.isPending}
-                  >
-                    {loginMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Logging in...
-                      </>
-                    ) : (
-                      "Login"
-                    )}
-                  </Button>
+                <CardFooter className="flex flex-col space-y-4 border-t border-white/10 pt-5">
+                  <div className="text-sm text-white/70 text-center">
+                    Don't have an account?{" "}
+                    <button
+                      className="text-white font-medium hover:underline"
+                      onClick={() => handleTabChange("register")}
+                    >
+                      Sign up
+                    </button>
+                  </div>
                 </CardFooter>
-              </form>
+              </Card>
             </TabsContent>
+
+            {/* Register Tab */}
             <TabsContent value="register">
-              <form onSubmit={handleRegisterSubmit(onRegister)}>
-                <CardContent className="space-y-4 pt-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="register-name">Full Name</Label>
-                    <Input
-                      id="register-name"
-                      {...registerSignup("name")}
-                      placeholder="Enter your full name"
-                    />
-                    {registerErrors.name && (
-                      <p className="text-sm text-red-500">
-                        {registerErrors.name.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="register-username">Username</Label>
-                    <Input
-                      id="register-username"
-                      {...registerSignup("username")}
-                      placeholder="Choose a username"
-                    />
-                    {registerErrors.username && (
-                      <p className="text-sm text-red-500">
-                        {registerErrors.username.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="register-email">Email</Label>
-                    <Input
-                      id="register-email"
-                      type="email"
-                      {...registerSignup("email")}
-                      placeholder="Enter your email address"
-                    />
-                    {registerErrors.email && (
-                      <p className="text-sm text-red-500">
-                        {registerErrors.email.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="register-password">Password</Label>
-                    <Input
-                      id="register-password"
-                      type="password"
-                      {...registerSignup("password")}
-                      placeholder="Choose a password"
-                    />
-                    {registerErrors.password && (
-                      <p className="text-sm text-red-500">
-                        {registerErrors.password.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="register-role">Role</Label>
-                    <select
-                      id="register-role"
-                      {...registerSignup("role")}
-                      className="flex w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="receptionist">Receptionist</option>
-                      <option value="doctor">Doctor</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                    {registerErrors.role && (
-                      <p className="text-sm text-red-500">
-                        {registerErrors.role.message}
-                      </p>
-                    )}
-                  </div>
+              <Card className="border-0 shadow-xl bg-white/10 backdrop-blur-md text-white">
+                <CardHeader className="space-y-1">
+                  <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
+                  <CardDescription className="text-white/70">
+                    Enter your information to register
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {serverError && <FormError message={serverError} />}
+                  <Form {...registerForm}>
+                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                      <FormField
+                        control={registerForm.control}
+                        name="fullName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-white">Full Name</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-5 w-5" />
+                                <Input 
+                                  {...field} 
+                                  placeholder="Enter your full name" 
+                                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-blue-400"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-red-300" />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-white">Username</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-5 w-5" />
+                                <Input 
+                                  {...field} 
+                                  placeholder="Choose a username" 
+                                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-blue-400"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-red-300" />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-white">Email</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-5 w-5" />
+                                <Input 
+                                  {...field} 
+                                  placeholder="Enter your email" 
+                                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-blue-400"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-red-300" />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-white">Password</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-5 w-5" />
+                                <Input 
+                                  {...field} 
+                                  type={showPassword ? "text" : "password"} 
+                                  placeholder="Create a password" 
+                                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-blue-400"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-0 h-full px-3 py-2 text-white/70 hover:text-white"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                >
+                                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  <span className="sr-only">
+                                    {showPassword ? "Hide password" : "Show password"}
+                                  </span>
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-red-300" />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-white">Confirm Password</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-5 w-5" />
+                                <Input 
+                                  {...field} 
+                                  type={showConfirmPassword ? "text" : "password"} 
+                                  placeholder="Confirm your password" 
+                                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-blue-400"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-0 h-full px-3 py-2 text-white/70 hover:text-white"
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                >
+                                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  <span className="sr-only">
+                                    {showConfirmPassword ? "Hide password" : "Show password"}
+                                  </span>
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-red-300" />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex justify-end">
+                        <Button 
+                          type="submit" 
+                          className="w-full bg-white text-blue-700 hover:bg-white/90"
+                          disabled={registerMutation.isPending}
+                        >
+                          {registerMutation.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Creating account...
+                            </>
+                          ) : (
+                            <>
+                              Sign Up
+                              <ArrowRight className="ml-2 h-4 w-4" />
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
                 </CardContent>
-                <CardFooter>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={registerMutation.isPending}
-                  >
-                    {registerMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating account...
-                      </>
-                    ) : (
-                      "Create Account"
-                    )}
-                  </Button>
-                </CardFooter>
-              </form>
-            </TabsContent>
-            <TabsContent value="verify">
-              <form onSubmit={handleVerificationSubmit(onVerifyEmail)}>
-                <CardContent className="space-y-4 pt-6">
-                  <div className="flex items-center justify-center mb-2">
-                    <Mail className="h-12 w-12 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-center mb-4">
-                    Verify Your Email
-                  </h3>
-                  <div className="space-y-2">
-                    <Label htmlFor="verify-email">Email Address</Label>
-                    <Input
-                      id="verify-email"
-                      type="email"
-                      {...registerVerification("email")}
-                      placeholder="Enter your email address"
-                    />
-                    {verificationErrors.email && (
-                      <p className="text-sm text-red-500">
-                        {verificationErrors.email.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="verify-code">Verification Code</Label>
-                    <Input
-                      id="verify-code"
-                      {...registerVerification("code")}
-                      placeholder="Enter verification code from email"
-                    />
-                    {verificationErrors.code && (
-                      <p className="text-sm text-red-500">
-                        {verificationErrors.code.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex justify-center">
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="text-primary"
-                      onClick={() => handleResendVerification(
-                        (document.getElementById('verify-email') as HTMLInputElement)?.value
-                      )}
+                <CardFooter className="flex flex-col space-y-4 border-t border-white/10 pt-5">
+                  <div className="text-sm text-white/70 text-center">
+                    Already have an account?{" "}
+                    <button
+                      className="text-white font-medium hover:underline"
+                      onClick={() => handleTabChange("login")}
                     >
-                      Resend verification email
-                    </Button>
+                      Log in
+                    </button>
                   </div>
-                </CardContent>
-                <CardFooter className="flex flex-col gap-2">
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isVerifyingEmail}
-                  >
-                    {isVerifyingEmail ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
-                      </>
-                    ) : (
-                      "Verify Email"
-                    )}
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setActiveTab("login")}
-                  >
-                    Back to Login
-                  </Button>
                 </CardFooter>
-              </form>
+              </Card>
             </TabsContent>
           </Tabs>
-        </Card>
-      </div>
-      <div className="flex-1 bg-primary/10 p-6 flex flex-col justify-center hidden md:flex">
-        <div className="max-w-md mx-auto">
-          <h1 className="text-4xl font-bold mb-6">
-            Medical Queue Management System
-          </h1>
-          <p className="text-lg mb-6">
-            A comprehensive solution for managing patient queues in medical
-            facilities. Improve efficiency and enhance patient experience with
-            our real-time queue management system.
-          </p>
-          <ul className="space-y-2">
-            <li className="flex items-center">
-              <svg
-                className="h-5 w-5 mr-2 text-primary"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              Real-time queue updates
-            </li>
-            <li className="flex items-center">
-              <svg
-                className="h-5 w-5 mr-2 text-primary"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              Patient notification system
-            </li>
-            <li className="flex items-center">
-              <svg
-                className="h-5 w-5 mr-2 text-primary"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              Simplified patient registration
-            </li>
-            <li className="flex items-center">
-              <svg
-                className="h-5 w-5 mr-2 text-primary"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              Doctor availability management
-            </li>
-          </ul>
-        </div>
+        </motion.div>
+
+        {/* Right column - Hero Content */}
+        <motion.div 
+          className="hidden lg:block w-full max-w-lg"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <div className="text-white">
+            <div className="flex items-center mb-8">
+              <div className="p-3 bg-white/10 backdrop-blur-md rounded-full mr-4">
+                <Shield className="h-8 w-8 text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold">Trusted by 1,200+ Medical Clinics</h2>
+            </div>
+            
+            <h3 className="text-4xl font-bold mb-6">
+              Streamline Your <br />
+              <span className="bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+                Patient Queue Management
+              </span>
+            </h3>
+            
+            <p className="text-white/80 text-xl mb-8">
+              QueueMaster helps you manage patient flow efficiently, 
+              reduce wait times, and improve patient satisfaction.
+            </p>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { number: "40%", text: "Reduction in patient wait times" },
+                { number: "30%", text: "Increase in daily patient capacity" },
+                { number: "85%", text: "Improvement in patient satisfaction" },
+                { number: "24/7", text: "Access to queue analytics" }
+              ].map((stat, index) => (
+                <div 
+                  key={index}
+                  className="bg-white/10 backdrop-blur-sm p-4 rounded-lg border border-white/20"
+                >
+                  <p className="text-3xl font-bold text-white">{stat.number}</p>
+                  <p className="text-white/70">{stat.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
-}
+};
+
+export default AuthPage;
