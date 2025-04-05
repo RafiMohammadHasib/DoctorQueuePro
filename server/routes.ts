@@ -10,11 +10,21 @@ import { insertPatientSchema, insertQueueItemSchema, users } from "@shared/schem
 import { setupAuth, requireAuth, requireRole } from "./auth";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import Stripe from "stripe";
 
 // WebSocket client management
 const clients = new Map<string, WebSocket>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize Stripe
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.warn('Missing STRIPE_SECRET_KEY environment variable. Stripe payments will not work.');
+  }
+  
+  const stripe = process.env.STRIPE_SECRET_KEY 
+    ? new Stripe(process.env.STRIPE_SECRET_KEY) 
+    : undefined;
+  
   // Set up authentication
   setupAuth(app);
   
@@ -538,6 +548,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize some sample data if needed
   await initializeSampleData();
+
+  // Stripe payment routes
+  if (stripe) {
+    // Payment intent creation for one-time payments
+    app.post('/api/create-payment-intent', async (req, res) => {
+      try {
+        const { amount, planId } = req.body;
+        
+        if (!amount) {
+          return res.status(400).json({ message: 'Amount is required' });
+        }
+        
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: 'usd',
+          metadata: {
+            planId: planId || ''
+          }
+        });
+        
+        res.json({ clientSecret: paymentIntent.client_secret });
+      } catch (error: any) {
+        console.error('Error creating payment intent:', error);
+        res.status(500).json({ 
+          message: 'Failed to create payment intent',
+          error: error.message 
+        });
+      }
+    });
+    
+    // Webhook for handling Stripe events (payment succeeded, failed, etc.)
+    app.post('/api/stripe-webhook', async (req, res) => {
+      const signature = req.headers['stripe-signature'] as string;
+      
+      if (!signature) {
+        return res.status(400).json({ message: 'Stripe signature is missing' });
+      }
+      
+      try {
+        const event = stripe.webhooks.constructEvent(
+          req.body,
+          signature,
+          process.env.STRIPE_WEBHOOK_SECRET || ''
+        );
+        
+        // Handle the event based on its type
+        switch (event.type) {
+          case 'payment_intent.succeeded':
+            // Handle successful payment
+            const paymentIntent = event.data.object;
+            console.log('Payment succeeded:', paymentIntent.id);
+            break;
+            
+          case 'payment_intent.payment_failed':
+            // Handle failed payment
+            const failedPayment = event.data.object;
+            console.log('Payment failed:', failedPayment.id);
+            break;
+            
+          default:
+            console.log(`Unhandled event type: ${event.type}`);
+        }
+        
+        res.json({ received: true });
+      } catch (error: any) {
+        console.error('Webhook error:', error);
+        res.status(400).json({ message: 'Webhook signature verification failed' });
+      }
+    });
+  }
 
   return httpServer;
 }

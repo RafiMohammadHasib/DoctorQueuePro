@@ -16,6 +16,10 @@ import AppShell from "@/components/layout/AppShell";
 import { SocketContext, getSocket } from "./lib/socket";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import NewDoctorDashboard from "@/pages/NewDoctorDashboard";
+import LandingPage from "@/pages/LandingPage";
+import SetupWizard from "@/pages/SetupWizard";
+import SubscriptionPage from "@/pages/subscribe";
 
 function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -46,12 +50,18 @@ function Router() {
   return (
     <AppShell>
       <Switch>
-        <Route path="/" component={QueueMonitor} />
+        <Route path="/" component={LandingPage} />
         <Route path="/auth" component={AuthPage} />
         <Route path="/verify-email/:token" component={VerifyEmailPage} />
-        <ProtectedRoute path="/doctor" component={DoctorDashboard} requiredRole="doctor" />
+        <Route path="/subscribe" component={SubscriptionPage} />
+        <Route path="/setup/:step?" component={SetupWizard} />
+        
+        <ProtectedRoute path="/doctor" component={NewDoctorDashboard} requiredRole="doctor" />
+        <ProtectedRoute path="/doctor/dashboard" component={NewDoctorDashboard} requiredRole="doctor" />
         <ProtectedRoute path="/doctor/patients" component={DoctorPatients} requiredRole="doctor" />
         <ProtectedRoute path="/doctor/settings" component={DoctorSettings} requiredRole="doctor" />
+        <ProtectedRoute path="/doctor/queue" component={QueueMonitor} requiredRole="doctor" />
+        
         <ProtectedRoute path="/admin" component={AdminDashboard} requiredRole="admin" />
         <ProtectedRoute path="/reception" component={ReceptionKiosk} requiredRole="receptionist" />
         <Route path="/monitor" component={QueueMonitor} />
