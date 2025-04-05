@@ -3,10 +3,15 @@ import { User } from '@shared/schema';
 
 // Initialize SendGrid
 const mailService = new MailService();
-mailService.setApiKey(process.env.SENDGRID_API_KEY!);
+if (process.env.SENDGRID_API_KEY) {
+  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 // From email should be a verified sender in your SendGrid account
 const fromEmail = 'notifications@medical-queue.com';
+
+// Environment detection
+const isDevelopment = process.env.NODE_ENV !== 'production';
 
 class EmailService {
   /**
@@ -60,11 +65,35 @@ The Medical Queue Management Team
         `,
       };
 
-      // Send the email
-      await mailService.send(msg);
-      return true;
+      // If in development or SendGrid is not configured, log the verification info
+      if (isDevelopment || !process.env.SENDGRID_API_KEY) {
+        console.log('========== DEVELOPMENT EMAIL ==========');
+        console.log(`Email would be sent to: ${user.email}`);
+        console.log(`Verification URL: ${verificationUrl}`);
+        console.log(`Verification Code: ${verificationToken}`);
+        console.log('=======================================');
+        return true;
+      }
+
+      // Try to send the email via SendGrid
+      try {
+        await mailService.send(msg);
+        return true;
+      } catch (error) {
+        console.error('SendGrid error:', error);
+        
+        // Fall back to console logging if SendGrid fails
+        console.log('========== FALLBACK EMAIL OUTPUT ==========');
+        console.log(`Email would be sent to: ${user.email}`);
+        console.log(`Verification URL: ${verificationUrl}`);
+        console.log(`Verification Code: ${verificationToken}`);
+        console.log('==========================================');
+        
+        // Return true in development mode so verification can still proceed
+        return isDevelopment;
+      }
     } catch (error) {
-      console.error('SendGrid error:', error);
+      console.error('Email service error:', error);
       return false;
     }
   }
