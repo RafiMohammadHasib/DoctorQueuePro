@@ -81,6 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Login successful",
         description: `Welcome back, ${user.name}!`,
       });
+      
+      // Redirect based on user role
+      if (user.role === 'doctor') {
+        window.location.href = '/doctor';
+      } else if (user.role === 'admin') {
+        window.location.href = '/admin';
+      } else if (user.role === 'receptionist') {
+        window.location.href = '/reception';
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -122,6 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Logged out",
         description: "You have been successfully logged out",
       });
+      // Redirect to home page after logout
+      window.location.href = '/';
     },
     onError: (error: Error) => {
       toast({

@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { queueService } from "./services/queueService";
 import { notificationService } from "./services/notificationService";
+import { emailService } from "./services/emailService";
 import { z } from "zod";
 import { insertPatientSchema, insertQueueItemSchema, users } from "@shared/schema";
 import { setupAuth, requireAuth, requireRole } from "./auth";
@@ -161,9 +162,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updatedUser) {
         return res.status(500).json({ message: 'Error updating verification code.' });
       }
-      
-      // Import the email service
-      const { emailService } = await import('./services/emailService');
       
       // Resend verification email
       const sent = await emailService.sendVerificationEmail(updatedUser, newVerificationCode);
