@@ -49,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: 'ok' });
   });
   
-  // Email verification route
+  // Email verification route - using link with token
   app.get('/api/verify-email/:token', async (req, res) => {
     try {
       const token = req.params.token;
@@ -78,6 +78,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error verifying email:', error);
       return res.status(500).json({ message: 'An error occurred during verification.' });
+    }
+  });
+
+  // Manual email verification using code
+  app.post('/api/verify-email/code', async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      
+      if (!email || !code) {
+        return res.status(400).json({ message: 'Email and verification code are required.' });
+      }
+      
+      // Get user by email
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found with the provided email.' });
+      }
+      
+      if (user.isVerified) {
+        return res.status(200).json({ message: 'Email already verified. You can now log in.' });
+      }
+      
+      // Check if the provided code matches the verification token
+      if (user.verificationToken !== code) {
+        return res.status(400).json({ message: 'Invalid verification code.' });
+      }
+      
+      // Verify the user
+      const verifiedUser = await storage.verifyUser(user.id);
+      
+      // If the user is already logged in, update their session
+      if (req.isAuthenticated() && req.user.id === verifiedUser.id) {
+        req.login(verifiedUser, (err) => {
+          if (err) {
+            console.error('Error updating session:', err);
+          }
+        });
+      }
+      
+      return res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
+    } catch (error) {
+      console.error('Error verifying email with code:', error);
+      return res.status(500).json({ message: 'An error occurred during verification.' });
+    }
+  });
+
+  // Resend verification email
+  app.post('/api/resend-verification', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: 'Email is required.' });
+      }
+      
+      // Get user by email
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found with the provided email.' });
+      }
+      
+      if (user.isVerified) {
+        return res.status(200).json({ message: 'Email already verified. You can now log in.' });
+      }
+      
+      // Import the email service
+      const { emailService } = await import('./services/emailService');
+      
+      // Resend verification email
+      const sent = await emailService.sendVerificationEmail(user, user.verificationToken!);
+      
+      if (sent) {
+        return res.status(200).json({ message: 'Verification email sent successfully.' });
+      } else {
+        return res.status(500).json({ message: 'Failed to send verification email.' });
+      }
+    } catch (error) {
+      console.error('Error resending verification email:', error);
+      return res.status(500).json({ message: 'An error occurred while resending verification email.' });
     }
   });
 

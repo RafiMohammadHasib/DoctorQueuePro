@@ -1,16 +1,55 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
-import { Clock } from 'lucide-react';
+import { Clock, LogOut, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/use-auth';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 
 const Header: React.FC = () => {
   const [location] = useLocation();
+  const { user, logoutMutation } = useAuth();
 
   // Determine which navigation item is active
   const isActive = (path: string) => {
     if (path === '/' && location === '/') return true;
     if (path !== '/' && location.startsWith(path)) return true;
     return false;
+  };
+
+  // Filter navigation items based on user role
+  const getNavItems = () => {
+    // Always show Queue Monitor
+    const items = [
+      { href: '/monitor', label: 'Queue Monitor' }
+    ];
+
+    // Add role-specific items
+    if (user) {
+      if (user.role === 'admin') {
+        items.push(
+          { href: '/doctor', label: 'Doctor Dashboard' },
+          { href: '/reception', label: 'Reception' },
+          { href: '/admin', label: 'Admin Dashboard' }
+        );
+      } else if (user.role === 'doctor') {
+        items.push({ href: '/doctor', label: 'Doctor Dashboard' });
+      } else if (user.role === 'receptionist') {
+        items.push({ href: '/reception', label: 'Reception' });
+      }
+    }
+
+    return items;
+  };
+
+  const handleLogout = () => {
+    logoutMutation.mutate();
   };
 
   return (
@@ -25,12 +64,51 @@ const Header: React.FC = () => {
               <div className="ml-3 text-xl font-semibold text-white cursor-pointer">MediQueue</div>
             </Link>
           </div>
-          <nav className="flex space-x-4">
-            <NavItem href="/monitor" isActive={isActive('/monitor')} label="Queue Monitor" />
-            <NavItem href="/doctor" isActive={isActive('/doctor')} label="Doctor Dashboard" />
-            <NavItem href="/reception" isActive={isActive('/reception')} label="Reception" />
-            <NavItem href="/admin" isActive={isActive('/admin')} label="Admin" />
-          </nav>
+          
+          <div className="flex items-center space-x-4">
+            <nav className="flex space-x-3">
+              {getNavItems().map((item) => (
+                <NavItem 
+                  key={item.href}
+                  href={item.href} 
+                  isActive={isActive(item.href)} 
+                  label={item.label} 
+                />
+              ))}
+            </nav>
+            
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="text-white hover:bg-primary-600"
+                  >
+                    <UserCircle className="h-5 w-5 mr-2" />
+                    {user.name || user.username}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <UserCircle className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link href="/auth">
+                <Button variant="secondary" size="sm">
+                  Login
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </header>

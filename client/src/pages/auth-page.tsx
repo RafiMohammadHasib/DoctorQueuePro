@@ -4,6 +4,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 
@@ -39,14 +40,22 @@ const registerSchema = z.object({
   role: z.enum(["admin", "doctor", "receptionist"]),
 });
 
+const verificationSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  code: z.string().min(6, "Verification code must be at least 6 characters"),
+});
+
 type LoginFormValues = z.infer<typeof loginSchema>;
 type RegisterFormValues = z.infer<typeof registerSchema>;
+type VerificationFormValues = z.infer<typeof verificationSchema>;
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login");
   const [_, navigate] = useLocation();
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const { user, loginMutation, registerMutation } = useAuth();
+  const { toast } = useToast();
   const search = useSearch();
   
   // Check for verification status in query params
@@ -78,12 +87,7 @@ export default function AuthPage() {
     }
   }, [registerMutation.isSuccess]);
 
-  // Redirect if already logged in
-  if (user) {
-    navigate("/");
-    return null;
-  }
-
+  // Redirect if already logged in - moved after all hooks are called
   const {
     register: registerLogin,
     handleSubmit: handleLoginSubmit,
@@ -111,6 +115,18 @@ export default function AuthPage() {
     },
   });
 
+  const {
+    register: registerVerification,
+    handleSubmit: handleVerificationSubmit,
+    formState: { errors: verificationErrors },
+  } = useForm<VerificationFormValues>({
+    resolver: zodResolver(verificationSchema),
+    defaultValues: {
+      email: "",
+      code: "",
+    },
+  });
+
   const onLogin = async (data: LoginFormValues) => {
     loginMutation.mutate(data);
   };
@@ -118,6 +134,97 @@ export default function AuthPage() {
   const onRegister = async (data: RegisterFormValues) => {
     registerMutation.mutate(data);
   };
+
+  const onVerifyEmail = async (data: VerificationFormValues) => {
+    try {
+      setIsVerifyingEmail(true);
+      
+      const response = await fetch(`/api/verify-email/code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Email Verified",
+          description: "Your email has been successfully verified.",
+          variant: "default",
+        });
+        setVerificationStatus("success");
+        setIsVerifyingEmail(false);
+        setActiveTab("login");
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Verification Failed",
+          description: errorData.message || "Failed to verify your email. Please check your verification code.",
+          variant: "destructive",
+        });
+        setVerificationStatus("error");
+        setIsVerifyingEmail(false);
+      }
+    } catch (error) {
+      toast({
+        title: "Verification Error",
+        description: "An error occurred during verification. Please try again.",
+        variant: "destructive",
+      });
+      setIsVerifyingEmail(false);
+    }
+  };
+
+  // Resend verification email
+  const handleResendVerification = async (email: string) => {
+    if (!email) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address to resend verification.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/resend-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Verification Email Sent",
+          description: "A new verification email has been sent to your email address.",
+          variant: "default",
+        });
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Failed to Resend",
+          description: errorData.message || "Failed to resend verification email. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An error occurred while resending the verification email.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Redirect if already logged in
+  if (user) {
+    navigate("/");
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
@@ -147,6 +254,13 @@ export default function AuthPage() {
                 <AlertTitle className="text-amber-800">Verification Required</AlertTitle>
                 <AlertDescription className="text-amber-700">
                   Please check your email for a verification link. You need to verify your email before logging in.
+                  <Button 
+                    variant="link" 
+                    className="text-amber-700 p-0 h-auto font-semibold hover:text-amber-800"
+                    onClick={() => setActiveTab("verify")}
+                  >
+                    Enter verification code manually
+                  </Button>
                 </AlertDescription>
               </Alert>
             )}
@@ -162,9 +276,10 @@ export default function AuthPage() {
             )}
           </CardHeader>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
+              <TabsTrigger value="verify">Verify Email</TabsTrigger>
             </TabsList>
             <TabsContent value="login">
               <form onSubmit={handleLoginSubmit(onLogin)}>
@@ -304,6 +419,81 @@ export default function AuthPage() {
                     ) : (
                       "Create Account"
                     )}
+                  </Button>
+                </CardFooter>
+              </form>
+            </TabsContent>
+            <TabsContent value="verify">
+              <form onSubmit={handleVerificationSubmit(onVerifyEmail)}>
+                <CardContent className="space-y-4 pt-6">
+                  <div className="flex items-center justify-center mb-2">
+                    <Mail className="h-12 w-12 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-center mb-4">
+                    Verify Your Email
+                  </h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="verify-email">Email Address</Label>
+                    <Input
+                      id="verify-email"
+                      type="email"
+                      {...registerVerification("email")}
+                      placeholder="Enter your email address"
+                    />
+                    {verificationErrors.email && (
+                      <p className="text-sm text-red-500">
+                        {verificationErrors.email.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="verify-code">Verification Code</Label>
+                    <Input
+                      id="verify-code"
+                      {...registerVerification("code")}
+                      placeholder="Enter verification code from email"
+                    />
+                    {verificationErrors.code && (
+                      <p className="text-sm text-red-500">
+                        {verificationErrors.code.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex justify-center">
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="text-primary"
+                      onClick={() => handleResendVerification(
+                        (document.getElementById('verify-email') as HTMLInputElement)?.value
+                      )}
+                    >
+                      Resend verification email
+                    </Button>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex flex-col gap-2">
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isVerifyingEmail}
+                  >
+                    {isVerifyingEmail ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      "Verify Email"
+                    )}
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setActiveTab("login")}
+                  >
+                    Back to Login
                   </Button>
                 </CardFooter>
               </form>
