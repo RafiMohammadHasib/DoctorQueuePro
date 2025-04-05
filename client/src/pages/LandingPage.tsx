@@ -138,7 +138,7 @@ const LandingPage: React.FC = () => {
           </div>
           <div className="flex items-center space-x-4">
             <Link href="/auth">
-              <Button variant="outline" className="text-white border-gray-600">Log In</Button>
+              <Button variant="outline" className="text-white border-white hover:bg-white hover:text-slate-900">Log In</Button>
             </Link>
             <Link href="/auth?tab=register">
               <Button className="bg-primary hover:bg-primary/90">Sign Up</Button>
