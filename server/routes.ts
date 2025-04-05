@@ -6,11 +6,15 @@ import { queueService } from "./services/queueService";
 import { notificationService } from "./services/notificationService";
 import { z } from "zod";
 import { insertPatientSchema, insertQueueItemSchema } from "@shared/schema";
+import { setupAuth, requireAuth, requireRole } from "./auth";
 
 // WebSocket client management
 const clients = new Map<string, WebSocket>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication
+  setupAuth(app);
+  
   const httpServer = createServer(app);
   
   // Set up WebSocket server
@@ -204,11 +208,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the average consultation time for the queue's doctor
-      const doctor = await storage.getDoctorById(queue.doctorId);
+      if (!queue.doctorId) {
+        return res.status(400).json({ message: 'Queue does not have an assigned doctor' });
+      }
+      
+      const doctorId = queue.doctorId as number; // Type assertion since we've checked it's not null
+      const doctor = await storage.getDoctorById(doctorId);
       const waitingItems = await storage.getQueueItemsByQueueIdAndStatus(queueId, 'waiting');
       
       // Calculate estimated wait time
-      const avgConsultTime = await queueService.calculateAverageConsultationTime(queue.doctorId);
+      const avgConsultTime = await queueService.calculateAverageConsultationTime(doctorId);
       const estimatedWaitTime = waitingItems.length * avgConsultTime;
       
       // Create queue item

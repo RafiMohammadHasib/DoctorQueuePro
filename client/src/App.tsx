@@ -8,8 +8,11 @@ import QueueMonitor from "@/pages/QueueMonitor";
 import DoctorDashboard from "@/pages/DoctorDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import ReceptionKiosk from "@/pages/ReceptionKiosk";
+import AuthPage from "@/pages/auth-page";
 import AppShell from "@/components/layout/AppShell";
 import { SocketContext, getSocket } from "./lib/socket";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/lib/protected-route";
 
 function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -41,9 +44,10 @@ function Router() {
     <AppShell>
       <Switch>
         <Route path="/" component={QueueMonitor} />
-        <Route path="/doctor" component={DoctorDashboard} />
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/reception" component={ReceptionKiosk} />
+        <Route path="/auth" component={AuthPage} />
+        <ProtectedRoute path="/doctor" component={DoctorDashboard} requiredRole="doctor" />
+        <ProtectedRoute path="/admin" component={AdminDashboard} requiredRole="admin" />
+        <ProtectedRoute path="/reception" component={ReceptionKiosk} requiredRole="receptionist" />
         <Route path="/monitor" component={QueueMonitor} />
         <Route component={NotFound} />
       </Switch>
@@ -54,10 +58,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <SocketProvider>
-        <Router />
-        <Toaster />
-      </SocketProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <Router />
+          <Toaster />
+        </SocketProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

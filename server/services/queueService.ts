@@ -89,8 +89,12 @@ class QueueService {
         throw new Error('Queue not found');
       }
       
+      if (!queue.doctorId) {
+        throw new Error('Queue does not have an assigned doctor');
+      }
+      
       // Calculate average consultation time
-      const avgConsultTime = await this.calculateAverageConsultationTime(queue.doctorId);
+      const avgConsultTime = await this.calculateAverageConsultationTime(queue.doctorId as number);
       
       // Update estimated wait times for each patient
       for (let i = 0; i < waitingItems.length; i++) {
@@ -145,6 +149,10 @@ class QueueService {
       
       if (!queue) {
         throw new Error('Queue not found for doctor');
+      }
+      
+      if (!queue.doctorId) {
+        throw new Error('Queue does not have an assigned doctor');
       }
       
       // Get today's date range
