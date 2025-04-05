@@ -559,8 +559,8 @@ async function initializeSampleData() {
     const existingDoctors = await storage.getAllDoctors();
     
     if (existingDoctors.length === 0) {
-      // Create sample user
-      const user = await storage.createUser({
+      // Create sample doctor user
+      const doctorUser = await storage.createUser({
         username: 'drjohnson',
         password: 'password123',
         email: 'sarah.johnson@example.com',
@@ -576,13 +576,35 @@ async function initializeSampleData() {
         specialization: 'General Practice',
         roomNumber: '204',
         isAvailable: true,
-        userId: user.id
+        userId: doctorUser.id
       });
       
       // Create queue for the doctor
       await storage.createQueue({
         name: `Dr. ${doctor.name}'s Queue`,
         doctorId: doctor.id
+      });
+      
+      // Create admin user
+      await storage.createUser({
+        username: 'admin',
+        password: 'admin',
+        email: 'admin@example.com',
+        role: 'admin',
+        name: 'System Administrator',
+        isVerified: true,
+        verificationToken: null
+      });
+      
+      // Create receptionist user
+      await storage.createUser({
+        username: 'receptionist',
+        password: 'password123',
+        email: 'reception@example.com',
+        role: 'receptionist',
+        name: 'Front Desk',
+        isVerified: true,
+        verificationToken: null
       });
       
       console.log('Sample data initialized');

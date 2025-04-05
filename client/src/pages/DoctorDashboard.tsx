@@ -8,6 +8,7 @@ import DoctorControls from '@/components/DoctorControls';
 import QueueItem from '@/components/QueueItem';
 import QueueStatsComponent from '@/components/QueueStats';
 import { useToast } from '@/hooks/use-toast';
+import { motion } from 'framer-motion';
 import { 
   Card, 
   CardContent, 
@@ -19,7 +20,20 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, List, Grid, Clock, Users, Activity, CheckCircle, Calendar } from 'lucide-react';
+import { 
+  Search, 
+  List, 
+  Grid, 
+  Clock, 
+  Users, 
+  Activity, 
+  CheckCircle, 
+  Calendar, 
+  Bell,
+  FileText, 
+  BarChart4, 
+  TrendingUp 
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import DoctorSidebar from '@/components/layout/DoctorSidebar';
@@ -315,83 +329,136 @@ const DoctorDashboard: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-slate-100">
       {/* Sidebar */}
       <DoctorSidebar waitingCount={waitingCounts.total} />
       
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">Doctor Dashboard</h1>
-            <p className="text-gray-500">
-              Welcome back, Dr. {doctorQueue?.doctor?.name?.split(" ")[1] || doctorQueue?.doctor?.name || ''}
-            </p>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-6"
+          >
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+                  Doctor Dashboard
+                </h1>
+                <p className="text-gray-600">
+                  Welcome back, Dr. {doctorQueue?.doctor?.name?.split(" ")[1] || doctorQueue?.doctor?.name || ''}
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-2"
+                  onClick={() => setShowNotifications(true)}
+                >
+                  <Bell className="h-4 w-4" />
+                  <span>Notifications</span>
+                  <span className="bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                </Button>
+                {showNotifications && (
+                  <NotificationPanel 
+                    isOpen={showNotifications} 
+                    onClose={() => setShowNotifications(false)} 
+                  />
+                )}
+              </div>
+            </div>
+          </motion.div>
           
           {/* Status Overview Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4 flex items-center">
-                <div className="rounded-full bg-blue-100 p-3 mr-4">
-                  <Users className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Patients Waiting</p>
-                  <div className="flex items-center mt-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mr-2">{waitingCounts.total}</h3>
-                    {stats && <span className="text-xs text-gray-500">({stats.totalPatients} today)</span>}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+            >
+              <Card className="border-blue-100 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-4 flex items-center">
+                  <div className="rounded-full bg-blue-100 p-3 mr-4">
+                    <Users className="h-6 w-6 text-blue-600" />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Patients Waiting</p>
+                    <div className="flex items-center mt-1">
+                      <h3 className="text-2xl font-bold text-gray-900 mr-2">{waitingCounts.total}</h3>
+                      {stats && <span className="text-xs text-gray-500">({stats.totalPatients} today)</span>}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
             
-            <Card>
-              <CardContent className="p-4 flex items-center">
-                <div className="rounded-full bg-green-100 p-3 mr-4">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Consultations</p>
-                  <div className="flex items-center mt-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mr-2">{stats?.patientsSeen || 0}</h3>
-                    <span className="text-xs text-gray-500">completed</span>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+            >
+              <Card className="border-green-100 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-4 flex items-center">
+                  <div className="rounded-full bg-green-100 p-3 mr-4">
+                    <CheckCircle className="h-6 w-6 text-green-600" />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Consultations</p>
+                    <div className="flex items-center mt-1">
+                      <h3 className="text-2xl font-bold text-gray-900 mr-2">{stats?.patientsSeen || 0}</h3>
+                      <span className="text-xs text-gray-500">completed</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
             
-            <Card>
-              <CardContent className="p-4 flex items-center">
-                <div className="rounded-full bg-amber-100 p-3 mr-4">
-                  <Clock className="h-6 w-6 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Avg. Wait Time</p>
-                  <div className="flex items-center mt-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mr-2">
-                      {stats?.averageWaitTime ? `${Math.round(stats.averageWaitTime)}m` : 'N/A'}
-                    </h3>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
+            >
+              <Card className="border-amber-100 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-4 flex items-center">
+                  <div className="rounded-full bg-amber-100 p-3 mr-4">
+                    <Clock className="h-6 w-6 text-amber-600" />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Avg. Wait Time</p>
+                    <div className="flex items-center mt-1">
+                      <h3 className="text-2xl font-bold text-gray-900 mr-2">
+                        {stats?.averageWaitTime ? `${Math.round(stats.averageWaitTime)}m` : 'N/A'}
+                      </h3>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
             
-            <Card>
-              <CardContent className="p-4 flex items-center">
-                <div className="rounded-full bg-purple-100 p-3 mr-4">
-                  <Activity className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Avg. Consult Time</p>
-                  <div className="flex items-center mt-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mr-2">
-                      {stats?.averageConsultTime ? `${Math.round(stats.averageConsultTime)}m` : 'N/A'}
-                    </h3>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+            >
+              <Card className="border-purple-100 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-4 flex items-center">
+                  <div className="rounded-full bg-purple-100 p-3 mr-4">
+                    <Activity className="h-6 w-6 text-purple-600" />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Avg. Consult Time</p>
+                    <div className="flex items-center mt-1">
+                      <h3 className="text-2xl font-bold text-gray-900 mr-2">
+                        {stats?.averageConsultTime ? `${Math.round(stats.averageConsultTime)}m` : 'N/A'}
+                      </h3>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
           
           {/* Doctor Controls & Current Patient Section */}
