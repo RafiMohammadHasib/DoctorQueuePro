@@ -83,8 +83,8 @@ export function setupAuth(app: Express) {
         return res.status(400).send("Email already exists");
       }
       
-      // Generate verification token
-      const verificationToken = randomBytes(32).toString('hex');
+      // Generate a short verification code (6 digits)
+      const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
       
       const user = await storage.createUser({
         ...req.body,

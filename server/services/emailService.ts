@@ -20,7 +20,7 @@ class EmailService {
       const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
       const verificationUrl = `${baseUrl}/verify-email/${verificationToken}`;
       
-      // Email template
+      // Email template with verification code prominently displayed
       const msg = {
         to: user.email,
         from: fromEmail,
@@ -30,7 +30,9 @@ Hello ${user.name},
 
 Thank you for registering with the Medical Queue Management System!
 
-Please verify your email by clicking on the following link:
+Your verification code is: ${verificationToken}
+
+You can enter this code on the verification page or click the following link to verify your email:
 ${verificationUrl}
 
 If you did not create this account, please ignore this email.
@@ -43,7 +45,13 @@ The Medical Queue Management Team
   <h2 style="color: #3b82f6;">Medical Queue Management System</h2>
   <p>Hello ${user.name},</p>
   <p>Thank you for registering with the Medical Queue Management System!</p>
-  <p>Please verify your email by clicking on the button below:</p>
+  
+  <div style="background-color: #f3f4f6; padding: 15px; border-radius: 4px; margin: 20px 0; text-align: center;">
+    <p style="margin: 0; font-size: 14px;">Your verification code is:</p>
+    <p style="font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 10px 0; color: #3b82f6;">${verificationToken}</p>
+  </div>
+  
+  <p>Please verify your email by clicking on the button below or entering the code above on the verification page:</p>
   <a href="${verificationUrl}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Verify Email</a>
   <p>If the button doesn't work, you can also click on this link: <a href="${verificationUrl}">${verificationUrl}</a></p>
   <p>If you did not create this account, please ignore this email.</p>

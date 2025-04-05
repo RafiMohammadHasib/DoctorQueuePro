@@ -9,6 +9,7 @@ import {
 export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
+  getUserById(id: number): Promise<User | undefined>; // Alias for getUser for consistency
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByVerificationToken(token: string): Promise<User | undefined>;
@@ -74,6 +75,10 @@ export class MemStorage implements IStorage {
   // User operations
   async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
+  }
+  
+  async getUserById(id: number): Promise<User | undefined> {
+    return this.getUser(id); // Using the existing getUser method
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {

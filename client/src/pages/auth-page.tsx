@@ -80,10 +80,22 @@ export default function AuthPage() {
     }
   }, [loginMutation.error]);
   
-  // Effect to handle registration success to show verification needed alert
+  // Effect to handle registration success to show verification needed alert and switch to verification tab
   useEffect(() => {
     if (registerMutation.isSuccess) {
       setVerificationStatus("pending");
+      // Auto-fill email field in verification form with the registered email
+      const registeredEmail = (document.getElementById('register-email') as HTMLInputElement)?.value;
+      if (registeredEmail) {
+        setTimeout(() => {
+          const verifyEmailInput = document.getElementById('verify-email') as HTMLInputElement;
+          if (verifyEmailInput) {
+            verifyEmailInput.value = registeredEmail;
+          }
+        }, 100);
+      }
+      // Switch to verification tab
+      setActiveTab("verify");
     }
   }, [registerMutation.isSuccess]);
 

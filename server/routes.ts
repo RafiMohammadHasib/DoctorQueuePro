@@ -5,8 +5,10 @@ import { storage } from "./storage";
 import { queueService } from "./services/queueService";
 import { notificationService } from "./services/notificationService";
 import { z } from "zod";
-import { insertPatientSchema, insertQueueItemSchema } from "@shared/schema";
+import { insertPatientSchema, insertQueueItemSchema, users } from "@shared/schema";
 import { setupAuth, requireAuth, requireRole } from "./auth";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 // WebSocket client management
 const clients = new Map<string, WebSocket>();
@@ -145,16 +147,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(200).json({ message: 'Email already verified. You can now log in.' });
       }
       
+      // Generate a new verification code (6 digits)
+      const newVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Update the user's verification token
+      await db.update(users)
+        .set({ verificationToken: newVerificationCode })
+        .where(eq(users.id, user.id));
+      
+      // Get the updated user
+      const updatedUser = await storage.getUserByEmail(email);
+      
+      if (!updatedUser) {
+        return res.status(500).json({ message: 'Error updating verification code.' });
+      }
+      
       // Import the email service
       const { emailService } = await import('./services/emailService');
       
       // Resend verification email
-      const sent = await emailService.sendVerificationEmail(user, user.verificationToken!);
+      const sent = await emailService.sendVerificationEmail(updatedUser, newVerificationCode);
       
       if (sent) {
         return res.status(200).json({ message: 'Verification email sent successfully.' });
       } else {
-        return res.status(500).json({ message: 'Failed to send verification email.' });
+        // If email fails, still return the code to the user
+        return res.status(200).json({ 
+          message: 'Email service unavailable. Use this verification code: ' + newVerificationCode,
+          verificationCode: newVerificationCode 
+        });
       }
     } catch (error) {
       console.error('Error resending verification email:', error);

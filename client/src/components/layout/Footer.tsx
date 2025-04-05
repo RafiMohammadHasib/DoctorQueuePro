@@ -18,15 +18,15 @@ const Footer: React.FC = () => {
             <div>
               <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-3">Quick Links</h3>
               <ul className="space-y-2">
-                <li><Link href="/monitor"><a className="text-sm text-gray-600 hover:text-primary-500">Queue Monitor</a></Link></li>
+                <li><Link href="/monitor"><span className="text-sm text-gray-600 hover:text-primary-500 cursor-pointer">Queue Monitor</span></Link></li>
                 {user?.role === 'admin' && (
                   <>
-                    <li><Link href="/admin"><a className="text-sm text-gray-600 hover:text-primary-500">Admin Dashboard</a></Link></li>
-                    <li><Link href="/reception"><a className="text-sm text-gray-600 hover:text-primary-500">Reception Kiosk</a></Link></li>
+                    <li><Link href="/admin"><span className="text-sm text-gray-600 hover:text-primary-500 cursor-pointer">Admin Dashboard</span></Link></li>
+                    <li><Link href="/reception"><span className="text-sm text-gray-600 hover:text-primary-500 cursor-pointer">Reception Kiosk</span></Link></li>
                   </>
                 )}
                 {(user?.role === 'doctor' || user?.role === 'admin') && (
-                  <li><Link href="/doctor"><a className="text-sm text-gray-600 hover:text-primary-500">Doctor Dashboard</a></Link></li>
+                  <li><Link href="/doctor"><span className="text-sm text-gray-600 hover:text-primary-500 cursor-pointer">Doctor Dashboard</span></Link></li>
                 )}
               </ul>
             </div>
