@@ -46,6 +46,9 @@ function SocketProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Import the new ContactPage
+import ContactPage from '@/pages/ContactPage';
+
 function Router() {
   return (
     <AppShell>
@@ -55,6 +58,7 @@ function Router() {
         <Route path="/verify-email/:token" component={VerifyEmailPage} />
         <Route path="/subscribe" component={SubscriptionPage} />
         <Route path="/setup/:step?" component={SetupWizard} />
+        <Route path="/contact" component={ContactPage} />
         
         <ProtectedRoute path="/doctor" component={NewDoctorDashboard} requiredRole="doctor" />
         <ProtectedRoute path="/doctor/dashboard" component={NewDoctorDashboard} requiredRole="doctor" />

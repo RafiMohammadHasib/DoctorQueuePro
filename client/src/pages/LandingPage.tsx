@@ -11,7 +11,8 @@ import {
   User, 
   CreditCard, 
   MessageCircle, 
-  BarChart4 
+  BarChart4,
+  ArrowRight
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -122,33 +123,67 @@ const LandingPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-white">
+    <div className="min-h-screen bg-gradient-to-b from-blue-700 to-blue-900 text-white overflow-hidden relative">
+      {/* Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Abstract shapes and medical themed graphics */}
+        <div className="absolute top-20 left-10 w-40 h-40 bg-blue-500/10 rounded-full backdrop-blur-lg"></div>
+        <div className="absolute bottom-40 right-10 w-56 h-56 bg-blue-500/20 rounded-full backdrop-blur-lg"></div>
+        <div className="absolute top-40 right-1/4 w-20 h-20 rounded-xl bg-blue-400/10 backdrop-blur-lg rotate-12"></div>
+        
+        {/* Queue number display in background */}
+        <div className="absolute top-1/4 right-[10%] bg-white/10 p-5 rounded-lg border border-white/10 backdrop-blur-md">
+          <div className="text-8xl font-bold text-white/70 tracking-widest">42</div>
+          <div className="text-center text-white/60 font-medium tracking-wide">CURRENT</div>
+        </div>
+        
+        <div className="absolute bottom-1/4 left-[15%] bg-blue-500/10 p-3 rounded-lg border border-white/10 backdrop-blur-md">
+          <div className="text-4xl font-bold text-white/70">45</div>
+          <div className="text-center text-white/60 text-sm">NEXT</div>
+        </div>
+        
+        {/* Grid patterns */}
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMSI+PHBhdGggZD0iTTM2IDM0aDR2MWgtNHpNNDAgMzRoMXY0aC0xek0zNiAzN2g0djFoLTR6TTM2IDM0aDF2NGgtMXoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30 z-0"></div>
+      </div>
       {/* Navigation */}
-      <header className="container mx-auto px-4 py-6">
-        <nav className="flex justify-between items-center">
-          <div className="flex items-center">
-            <Clock className="h-8 w-8 text-primary mr-2" />
-            <h1 className="text-2xl font-bold">QueueMaster</h1>
-          </div>
-          <div className="hidden md:flex space-x-6">
-            <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
-            <a href="#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
-            <a href="#testimonials" className="text-gray-300 hover:text-white transition-colors">Testimonials</a>
-            <a href="#contact" className="text-gray-300 hover:text-white transition-colors">Contact</a>
-          </div>
+      <header className="container mx-auto px-4 py-5">
+        <div className="flex justify-end py-2 border-b border-white/10">
           <div className="flex items-center space-x-4">
-            <Link href="/auth">
-              <Button variant="outline" className="text-white border-white hover:bg-white hover:text-slate-900">Log In</Button>
+            <a href="#" className="text-white/70 hover:text-white text-sm flex items-center">
+              <Clock className="h-4 w-4 mr-1" />
+              <span>Queue Monitor</span>
+            </a>
+            <Link href="/auth" className="text-white/70 hover:text-white text-sm">
+              Log In
             </Link>
+          </div>
+        </div>
+        <nav className="flex justify-between items-center py-4">
+          <div className="flex items-center">
+            <div className="bg-white/10 backdrop-blur-sm p-2 rounded-lg mr-3">
+              <Clock className="h-6 w-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">QueueMaster</h1>
+          </div>
+          <div className="hidden md:flex space-x-8">
+            <a href="#features" className="text-white/80 hover:text-white transition-colors font-medium">Features</a>
+            <a href="#pricing" className="text-white/80 hover:text-white transition-colors font-medium">Pricing</a>
+            <a href="#testimonials" className="text-white/80 hover:text-white transition-colors font-medium">Testimonials</a>
+            <Link href="/contact" className="text-white/80 hover:text-white transition-colors font-medium">Contact</Link>
+          </div>
+          <div>
             <Link href="/auth?tab=register">
-              <Button className="bg-primary hover:bg-primary/90">Sign Up</Button>
+              <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-lg">
+                Get Started
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </Link>
           </div>
         </nav>
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 flex flex-col lg:flex-row items-center">
+      <section className="container mx-auto px-4 py-20 flex flex-col lg:flex-row items-center relative z-10">
         <motion.div 
           className="lg:w-1/2 mb-10 lg:mb-0"
           initial={{ opacity: 0, x: -50 }}
@@ -156,34 +191,36 @@ const LandingPage: React.FC = () => {
           transition={{ duration: 0.8 }}
         >
           <h2 className="text-5xl lg:text-6xl font-bold leading-tight mb-6">
-            Keep Patient Care <br />
-            <span className="bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">On Track</span>
+            Streamline Patient <br />
+            <span className="bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">Queue Management</span>
           </h2>
-          <p className="text-xl text-gray-300 mb-8">
-            Elevate your clinic's efficiency with our cutting-edge queue management system. Streamline patient flow and enhance the care experience.
+          <p className="text-xl text-white/90 mb-8">
+            Join over 1,200 medical practices that have transformed their patient experience with QueueMaster. Reduce wait times by up to 40% and optimize your clinic operations.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <Link href="/auth?tab=register">
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg">
-                Start Now
-                <ChevronRight className="ml-2 h-5 w-5" />
+              <Button size="lg" className="bg-white text-blue-700 hover:bg-white/90 text-lg shadow-xl">
+                Start 14-Day Free Trial
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="border-gray-600 text-lg">
-              Watch Demo
-            </Button>
+            <a href="#how-it-works">
+              <Button size="lg" variant="outline" className="border-white/50 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 text-lg">
+                Learn How It Works
+              </Button>
+            </a>
           </div>
           <div className="mt-10 flex items-center">
-            <div className="flex -space-x-2">
+            <div className="flex -space-x-3">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="w-10 h-10 rounded-full bg-gray-600 border-2 border-slate-800 flex items-center justify-center text-sm">
+                <div key={i} className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/50 flex items-center justify-center text-sm shadow-lg">
                   {i}
                 </div>
               ))}
             </div>
             <div className="ml-4">
-              <p className="text-2xl font-bold">1.2K+</p>
-              <p className="text-sm text-gray-400">Clinics using our software</p>
+              <p className="text-2xl font-bold">1,200+</p>
+              <p className="text-sm text-white/80">Clinics using QueueMaster</p>
             </div>
           </div>
         </motion.div>
@@ -193,14 +230,44 @@ const LandingPage: React.FC = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8 }}
         >
-          <div className="w-full h-[400px] bg-slate-800 rounded-xl overflow-hidden shadow-2xl shadow-primary/20 relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/30"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-full h-[450px] bg-white/10 backdrop-blur-md rounded-xl overflow-hidden shadow-2xl border border-white/20 relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-blue-900/50"></div>
+            
+            {/* Queue Monitor Display */}
+            <div className="absolute inset-x-0 top-0 bg-blue-800/90 p-3 flex justify-between items-center border-b border-white/10">
+              <div className="flex items-center">
+                <Clock className="h-5 w-5 text-blue-200 mr-2" />
+                <span className="font-medium text-white/90">Queue Monitor</span>
+              </div>
+              <div className="text-white/80 text-sm">Live View</div>
+            </div>
+            
+            <div className="absolute inset-0 flex items-center justify-center pt-10">
               <div className="text-center">
-                <div className="w-32 h-32 mx-auto bg-primary/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                  <Clock className="h-16 w-16 text-primary" />
+                <div className="w-32 h-32 mx-auto bg-blue-500/30 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/20">
+                  <div className="text-6xl font-bold text-white">24</div>
                 </div>
-                <p className="mt-6 text-xl font-bold">Queue Management Made Simple</p>
+                <h3 className="text-3xl font-bold mt-6">Now Serving</h3>
+                
+                <div className="mt-6 flex justify-center gap-4">
+                  <div className="bg-white/10 backdrop-blur-sm p-3 rounded-lg border border-white/10 text-center w-24">
+                    <div className="text-sm text-white/70">Waiting</div>
+                    <div className="text-2xl font-bold">12</div>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm p-3 rounded-lg border border-white/10 text-center w-24">
+                    <div className="text-sm text-white/70">Avg. Wait</div>
+                    <div className="text-2xl font-bold">15m</div>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm p-3 rounded-lg border border-white/10 text-center w-24">
+                    <div className="text-sm text-white/70">Completed</div>
+                    <div className="text-2xl font-bold">43</div>
+                  </div>
+                </div>
+                
+                <div className="mt-8 bg-green-500/20 p-3 rounded-lg border border-green-500/40 backdrop-blur-sm inline-flex items-center">
+                  <CheckCircle className="text-green-400 h-6 w-6 mr-2" />
+                  <span className="font-medium">3 Patients ahead of you</span>
+                </div>
               </div>
             </div>
           </div>
@@ -262,37 +329,53 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-20 bg-gradient-to-b from-slate-900 to-slate-950">
+      <section id="how-it-works" className="py-20 bg-gradient-to-b from-slate-900 to-slate-950">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4">How It Works</h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            <p className="text-xl text-white/80 max-w-3xl mx-auto">
               Our simple 4-step process to transform your clinic's queue management
             </p>
           </div>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 relative">
-            <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-primary via-blue-400 to-primary transform -translate-y-1/2 z-0" />
+            <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50 transform -translate-y-1/2 z-0" />
             
             {[
-              { number: 1, title: "Set Up Your Clinic", description: "Configure your clinic details, doctor profiles, and queue settings" },
-              { number: 2, title: "Register Patients", description: "Easily add patients to the queue with our reception kiosk" },
-              { number: 3, title: "Manage Queue", description: "Track patient flow and make real-time adjustments as needed" },
-              { number: 4, title: "Analyze & Optimize", description: "Use analytics to improve efficiency and patient satisfaction" }
+              { 
+                number: 1, 
+                title: "Set Up Your Clinic", 
+                description: "Configure your clinic details, doctor profiles, and queue settings in minutes" 
+              },
+              { 
+                number: 2, 
+                title: "Register Patients", 
+                description: "Easily add patients to the queue with our intuitive reception interface" 
+              },
+              { 
+                number: 3, 
+                title: "Monitor Queue", 
+                description: "Track patient flow in real-time and send automated notifications" 
+              },
+              { 
+                number: 4, 
+                title: "Analyze & Improve", 
+                description: "Use analytics to optimize wait times and boost patient satisfaction" 
+              }
             ].map((step, index) => (
               <motion.div 
                 key={index}
-                className="bg-slate-800 rounded-xl p-8 text-center relative z-10"
+                className="bg-gradient-to-b from-slate-800 to-slate-800/70 rounded-xl p-8 text-center relative z-10 shadow-lg border border-slate-700/50"
                 initial={{ opacity: 0, y: 50 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 viewport={{ once: true }}
               >
-                <div className="w-16 h-16 rounded-full bg-primary text-white text-2xl font-bold flex items-center justify-center mx-auto mb-6">
+                <div className="w-16 h-16 rounded-full bg-primary text-white text-2xl font-bold flex items-center justify-center mx-auto mb-6 shadow-lg border-2 border-primary/30">
                   {step.number}
                 </div>
                 <h3 className="text-xl font-bold mb-3">{step.title}</h3>
-                <p className="text-gray-300">{step.description}</p>
+                <p className="text-white/70">{step.description}</p>
               </motion.div>
             ))}
           </div>
@@ -416,23 +499,32 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-primary bg-opacity-10">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl font-bold mb-6 bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
-            Ready to Transform Your Clinic?
-          </h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
-            Join over 1,200 clinics that have transformed their patient experience with QueueMaster.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth?tab=register">
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg">
-                Start Free Trial
-              </Button>
-            </Link>
-            <Button size="lg" variant="outline" className="border-gray-600 text-lg">
-              Request Demo
-            </Button>
+      <section className="py-24 bg-gradient-to-b from-slate-900 to-primary/5 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-400/20 rounded-full blur-3xl"></div>
+        </div>
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <div className="max-w-3xl mx-auto bg-slate-800/50 backdrop-blur-md p-10 rounded-2xl border border-white/10 shadow-2xl">
+            <h2 className="text-4xl font-bold mb-6 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+              Ready to Transform Your Clinic?
+            </h2>
+            <p className="text-xl text-white/80 max-w-2xl mx-auto mb-8">
+              Join over 1,200 healthcare providers who have streamlined their patient management with QueueMaster.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/auth?tab=register">
+                <Button size="lg" className="bg-white text-blue-700 hover:bg-white/90 text-lg font-medium shadow-xl px-8">
+                  Start Free Trial
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/contact">
+                <Button size="lg" variant="outline" className="border-white/50 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 text-lg">
+                  Contact Sales
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
