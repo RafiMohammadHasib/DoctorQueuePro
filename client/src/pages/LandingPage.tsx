@@ -147,17 +147,6 @@ const LandingPage: React.FC = () => {
       </div>
       {/* Navigation */}
       <header className="container mx-auto px-4 py-5">
-        <div className="flex justify-end py-2 border-b border-white/10">
-          <div className="flex items-center space-x-4">
-            <a href="#" className="text-white/70 hover:text-white text-sm flex items-center">
-              <Clock className="h-4 w-4 mr-1" />
-              <span>Queue Monitor</span>
-            </a>
-            <Link href="/auth" className="text-white/70 hover:text-white text-sm">
-              Log In
-            </Link>
-          </div>
-        </div>
         <nav className="flex justify-between items-center py-4">
           <div className="flex items-center">
             <div className="bg-white/10 backdrop-blur-sm p-2 rounded-lg mr-3">
@@ -170,8 +159,17 @@ const LandingPage: React.FC = () => {
             <a href="#pricing" className="text-white/80 hover:text-white transition-colors font-medium">Pricing</a>
             <a href="#testimonials" className="text-white/80 hover:text-white transition-colors font-medium">Testimonials</a>
             <Link href="/contact" className="text-white/80 hover:text-white transition-colors font-medium">Contact</Link>
+            <Link href="/queue-monitor" className="text-white/80 hover:text-white transition-colors font-medium flex items-center">
+              <Clock className="h-4 w-4 mr-1" />
+              Queue Monitor
+            </Link>
           </div>
-          <div>
+          <div className="flex items-center space-x-4">
+            <Link href="/auth">
+              <Button variant="ghost" className="text-white hover:bg-white/10 backdrop-blur-sm border-none">
+                Log In
+              </Button>
+            </Link>
             <Link href="/auth?tab=register">
               <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-lg">
                 Get Started
