@@ -48,6 +48,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+  
+  // Email verification route
+  app.get('/api/verify-email/:token', async (req, res) => {
+    try {
+      const token = req.params.token;
+      const user = await storage.getUserByVerificationToken(token);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'Invalid or expired verification token.' });
+      }
+      
+      if (user.isVerified) {
+        return res.status(200).json({ message: 'Email already verified. You can now log in.' });
+      }
+      
+      const verifiedUser = await storage.verifyUser(user.id);
+      
+      // If the user is already logged in, update their session
+      if (req.isAuthenticated() && req.user.id === verifiedUser.id) {
+        req.login(verifiedUser, (err) => {
+          if (err) {
+            console.error('Error updating session:', err);
+          }
+        });
+      }
+      
+      return res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
+    } catch (error) {
+      console.error('Error verifying email:', error);
+      return res.status(500).json({ message: 'An error occurred during verification.' });
+    }
+  });
 
   // Doctor routes
   app.get('/api/doctors', async (_req, res) => {
@@ -431,8 +463,11 @@ async function initializeSampleData() {
       const user = await storage.createUser({
         username: 'drjohnson',
         password: 'password123',
+        email: 'sarah.johnson@example.com',
         role: 'doctor',
-        name: 'Dr. Sarah Johnson'
+        name: 'Dr. Sarah Johnson',
+        isVerified: true,
+        verificationToken: null
       });
       
       // Create sample doctor

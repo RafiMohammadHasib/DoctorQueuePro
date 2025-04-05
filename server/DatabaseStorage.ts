@@ -21,6 +21,33 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
   }
+  
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+  
+  async getUserByVerificationToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.verificationToken, token));
+    return user;
+  }
+  
+  async verifyUser(id: number): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        isVerified: true,
+        verificationToken: null
+      })
+      .where(eq(users.id, id))
+      .returning();
+      
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    return user;
+  }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();

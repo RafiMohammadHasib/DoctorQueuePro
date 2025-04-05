@@ -9,6 +9,7 @@ import DoctorDashboard from "@/pages/DoctorDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import ReceptionKiosk from "@/pages/ReceptionKiosk";
 import AuthPage from "@/pages/auth-page";
+import VerifyEmailPage from "@/pages/verify-email";
 import AppShell from "@/components/layout/AppShell";
 import { SocketContext, getSocket } from "./lib/socket";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -45,6 +46,7 @@ function Router() {
       <Switch>
         <Route path="/" component={QueueMonitor} />
         <Route path="/auth" component={AuthPage} />
+        <Route path="/verify-email/:token" component={VerifyEmailPage} />
         <ProtectedRoute path="/doctor" component={DoctorDashboard} requiredRole="doctor" />
         <ProtectedRoute path="/admin" component={AdminDashboard} requiredRole="admin" />
         <ProtectedRoute path="/reception" component={ReceptionKiosk} requiredRole="receptionist" />

@@ -29,6 +29,11 @@ export function ProtectedRoute({
         if (!user) {
           return <Redirect to="/auth" />;
         }
+        
+        // Redirect to auth page if email is not verified
+        if (!user.isVerified) {
+          return <Redirect to="/auth" />;
+        }
 
         if (requiredRole && user.role !== requiredRole && user.role !== "admin") {
           return <Redirect to="/" />;

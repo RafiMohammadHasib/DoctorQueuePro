@@ -58,7 +58,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials)
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        // Handle the email verification error specifically
+        if (res.status === 403 && errorData.needsVerification) {
+          throw new Error("Please verify your email before logging in");
+        }
+        throw new Error(errorData.message || "Login failed");
+      }
+      
       return await res.json();
     },
     onSuccess: (user: User) => {
@@ -86,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/user"], user);
       toast({
         title: "Registration successful",
-        description: `Welcome, ${user.name}!`,
+        description: `Welcome, ${user.name}! Please check your email to verify your account.`,
       });
     },
     onError: (error: Error) => {

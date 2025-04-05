@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +23,8 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 
 const loginSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -32,6 +34,7 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(["admin", "doctor", "receptionist"]),
 });
@@ -42,7 +45,38 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login");
   const [_, navigate] = useLocation();
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const { user, loginMutation, registerMutation } = useAuth();
+  const search = useSearch();
+  
+  // Check for verification status in query params
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const status = params.get("status");
+    if (status === "success") {
+      setVerificationStatus("success");
+    } else if (status === "pending") {
+      setVerificationStatus("pending");
+    } else if (status === "error") {
+      setVerificationStatus("error");
+    }
+  }, [search]);
+
+  // Handle login errors specifically for verification issues
+  useEffect(() => {
+    if (loginMutation.error) {
+      if (loginMutation.error.message.includes("verify your email")) {
+        setVerificationStatus("pending");
+      }
+    }
+  }, [loginMutation.error]);
+  
+  // Effect to handle registration success to show verification needed alert
+  useEffect(() => {
+    if (registerMutation.isSuccess) {
+      setVerificationStatus("pending");
+    }
+  }, [registerMutation.isSuccess]);
 
   // Redirect if already logged in
   if (user) {
@@ -71,6 +105,7 @@ export default function AuthPage() {
     defaultValues: {
       name: "",
       username: "",
+      email: "",
       password: "",
       role: "receptionist",
     },
@@ -95,6 +130,36 @@ export default function AuthPage() {
             <CardDescription className="text-center">
               Sign in to access your account
             </CardDescription>
+            
+            {verificationStatus === "success" && (
+              <Alert className="mt-4 bg-green-50 border-green-200">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-800">Email Verified</AlertTitle>
+                <AlertDescription className="text-green-700">
+                  Your email has been successfully verified. You can now log in to your account.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {verificationStatus === "pending" && (
+              <Alert className="mt-4 bg-amber-50 border-amber-200">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-800">Verification Required</AlertTitle>
+                <AlertDescription className="text-amber-700">
+                  Please check your email for a verification link. You need to verify your email before logging in.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {verificationStatus === "error" && (
+              <Alert className="mt-4 bg-red-50 border-red-200">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertTitle className="text-red-800">Verification Failed</AlertTitle>
+                <AlertDescription className="text-red-700">
+                  We couldn't verify your email. The link may have expired or is invalid. Please try again or contact support.
+                </AlertDescription>
+              </Alert>
+            )}
           </CardHeader>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2">
@@ -176,6 +241,20 @@ export default function AuthPage() {
                     {registerErrors.username && (
                       <p className="text-sm text-red-500">
                         {registerErrors.username.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-email">Email</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      {...registerSignup("email")}
+                      placeholder="Enter your email address"
+                    />
+                    {registerErrors.email && (
+                      <p className="text-sm text-red-500">
+                        {registerErrors.email.message}
                       </p>
                     )}
                   </div>

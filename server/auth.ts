@@ -6,6 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import { emailService } from "./services/emailService";
 
 declare global {
   namespace Express {
@@ -75,15 +76,35 @@ export function setupAuth(app: Express) {
       if (existingUser) {
         return res.status(400).send("Username already exists");
       }
-
+      
+      // Check if email already exists
+      const existingEmail = await storage.getUserByEmail(req.body.email);
+      if (existingEmail) {
+        return res.status(400).send("Email already exists");
+      }
+      
+      // Generate verification token
+      const verificationToken = randomBytes(32).toString('hex');
+      
       const user = await storage.createUser({
         ...req.body,
         password: await hashPassword(req.body.password),
+        verificationToken,
+        isVerified: false,
       });
 
+      // Send verification email
+      try {
+        await emailService.sendVerificationEmail(user, verificationToken);
+        console.log(`Verification email sent to ${user.email}`);
+      } catch (error) {
+        console.error('Failed to send verification email:', error);
+        // Continue with registration even if email fails
+      }
+      
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(user);
+        res.status(201).json({...user, verificationToken: undefined});
       });
     } catch (error) {
       next(error);
@@ -91,6 +112,13 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", passport.authenticate("local"), (req, res) => {
+    // Check if email is verified
+    if (!req.user?.isVerified) {
+      return res.status(403).json({ 
+        message: 'Please verify your email before logging in.',
+        needsVerification: true
+      });
+    }
     res.status(200).json(req.user);
   });
 
@@ -104,6 +132,29 @@ export function setupAuth(app: Express) {
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     res.json(req.user);
+  });
+  
+  // Email verification endpoint
+  app.get("/api/verify-email/:token", async (req, res, next) => {
+    try {
+      const { token } = req.params;
+      const user = await storage.getUserByVerificationToken(token);
+      
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired verification token" });
+      }
+      
+      await storage.verifyUser(user.id);
+      
+      // If user is already logged in, update their session
+      if (req.isAuthenticated() && req.user.id === user.id) {
+        req.user.isVerified = true;
+      }
+      
+      res.json({ message: "Email verified successfully" });
+    } catch (error) {
+      next(error);
+    }
   });
 }
 

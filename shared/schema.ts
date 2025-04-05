@@ -17,8 +17,11 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email").notNull().unique(),
   role: text("role").notNull().default("staff"),
   name: text("name").notNull(),
+  isVerified: boolean("is_verified").default(false),
+  verificationToken: text("verification_token"),
 });
 
 export const doctors = pgTable("doctors", {
@@ -102,8 +105,11 @@ export const queueItemsRelations = relations(queueItems, ({ one }) => ({
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  email: true,
   role: true,
   name: true,
+  isVerified: true,
+  verificationToken: true,
 });
 
 export const insertDoctorSchema = createInsertSchema(doctors).pick({

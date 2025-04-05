@@ -10,7 +10,10 @@ export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByVerificationToken(token: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  verifyUser(id: number): Promise<User>;
 
   // Doctor operations
   createDoctor(doctor: InsertDoctor): Promise<Doctor>;
@@ -78,6 +81,34 @@ export class MemStorage implements IStorage {
       (user) => user.username === username,
     );
   }
+  
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.email === email,
+    );
+  }
+  
+  async getUserByVerificationToken(token: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.verificationToken === token,
+    );
+  }
+  
+  async verifyUser(id: number): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    const updatedUser = { 
+      ...user, 
+      isVerified: true,
+      verificationToken: null 
+    };
+    
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
@@ -85,7 +116,9 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       id, 
-      role: insertUser.role || 'user' // Default role if not provided
+      role: insertUser.role || 'user', // Default role if not provided
+      isVerified: insertUser.isVerified !== undefined ? insertUser.isVerified : false,
+      verificationToken: insertUser.verificationToken || null
     };
     this.users.set(id, user);
     return user;
