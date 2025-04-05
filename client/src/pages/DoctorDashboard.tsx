@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { DoctorWithQueue, QueueItemWithPatient, QueueStats as QueueStatsType } from '@shared/schema';
 import { getSocket } from '@/lib/socket';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow, format, addDays, subDays } from 'date-fns';
 import DoctorControls from '@/components/DoctorControls';
 import QueueItem from '@/components/QueueItem';
 import QueueStatsComponent from '@/components/QueueStats';
@@ -13,12 +13,16 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle, 
-  CardDescription 
+  CardDescription,
+  CardFooter 
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, List, Grid } from 'lucide-react';
+import { Search, List, Grid, Clock, Users, Activity, CheckCircle, Calendar } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import DoctorSidebar from '@/components/layout/DoctorSidebar';
 import NotificationPanel from '@/components/NotificationPanel';
 
 const DoctorDashboard: React.FC = () => {
@@ -222,6 +226,14 @@ const DoctorDashboard: React.FC = () => {
   // Current patient in consultation
   const currentPatient = doctorQueue?.queue?.items?.find((item: QueueItemWithPatient) => item.status === 'in-progress');
 
+  // Get waiting count by priority
+  const waitingCounts = {
+    total: filteredQueueItems.length,
+    normal: filteredQueueItems.filter(item => item.priorityLevel === 'normal').length,
+    priority: filteredQueueItems.filter(item => item.priorityLevel === 'priority').length,
+    urgent: filteredQueueItems.filter(item => item.priorityLevel === 'urgent').length
+  };
+
   // Handle calling the next patient
   const handleCallNext = () => {
     callNextMutation.mutate();
@@ -258,6 +270,34 @@ const DoctorDashboard: React.FC = () => {
     return formatDistanceToNow(new Date(queueItem.timeAdded), { addSuffix: false });
   };
 
+  // Generate some mock upcoming appointments for the dashboard
+  const getUpcomingAppointments = () => {
+    const today = new Date();
+    return [
+      {
+        id: 1,
+        patientName: "John Smith",
+        time: "10:30 AM",
+        date: format(today, 'MMM d, yyyy'),
+        type: "followup"
+      },
+      {
+        id: 2,
+        patientName: "Sarah Johnson",
+        time: "1:15 PM",
+        date: format(today, 'MMM d, yyyy'),
+        type: "new"
+      },
+      {
+        id: 3,
+        patientName: "Emma Davis",
+        time: "11:00 AM",
+        date: format(addDays(today, 1), 'MMM d, yyyy'),
+        type: "followup"
+      }
+    ];
+  };
+
   if (isLoadingQueue || isLoadingStats) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -275,151 +315,274 @@ const DoctorDashboard: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      {/* Doctor Controls Section */}
-      {doctorQueue && (
-        <DoctorControls
-          doctor={doctorQueue.doctor}
-          currentPatient={currentPatient}
-          stats={stats}
-          isAvailable={doctorQueue.doctor.isAvailable ?? false}
-          onCallNext={handleCallNext}
-          onCompleteConsultation={handleCompleteConsultation}
-          onCancelConsultation={handleCancelConsultation}
-          onToggleAvailability={() => toggleAvailabilityMutation.mutate()}
-          isPending={callNextMutation.isPending || completeConsultationMutation.isPending || cancelConsultationMutation.isPending}
-        />
-      )}
-
-      {/* Queue Management Section */}
-      <Card className="mt-6">
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-center">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* Sidebar */}
+      <DoctorSidebar waitingCount={waitingCounts.total} />
+      
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        <div className="p-6">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-gray-900">Doctor Dashboard</h1>
+            <p className="text-gray-500">
+              Welcome back, Dr. {doctorQueue?.doctor?.name?.split(" ")[1] || doctorQueue?.doctor?.name || ''}
+            </p>
+          </div>
+          
+          {/* Status Overview Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardContent className="p-4 flex items-center">
+                <div className="rounded-full bg-blue-100 p-3 mr-4">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Patients Waiting</p>
+                  <div className="flex items-center mt-1">
+                    <h3 className="text-2xl font-bold text-gray-900 mr-2">{waitingCounts.total}</h3>
+                    {stats && <span className="text-xs text-gray-500">({stats.totalPatients} today)</span>}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4 flex items-center">
+                <div className="rounded-full bg-green-100 p-3 mr-4">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Consultations</p>
+                  <div className="flex items-center mt-1">
+                    <h3 className="text-2xl font-bold text-gray-900 mr-2">{stats?.patientsSeen || 0}</h3>
+                    <span className="text-xs text-gray-500">completed</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4 flex items-center">
+                <div className="rounded-full bg-amber-100 p-3 mr-4">
+                  <Clock className="h-6 w-6 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Avg. Wait Time</p>
+                  <div className="flex items-center mt-1">
+                    <h3 className="text-2xl font-bold text-gray-900 mr-2">
+                      {stats?.averageWaitTime ? `${Math.round(stats.averageWaitTime)}m` : 'N/A'}
+                    </h3>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4 flex items-center">
+                <div className="rounded-full bg-purple-100 p-3 mr-4">
+                  <Activity className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Avg. Consult Time</p>
+                  <div className="flex items-center mt-1">
+                    <h3 className="text-2xl font-bold text-gray-900 mr-2">
+                      {stats?.averageConsultTime ? `${Math.round(stats.averageConsultTime)}m` : 'N/A'}
+                    </h3>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Doctor Controls & Current Patient Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div className="lg:col-span-2">
+              {doctorQueue && (
+                <DoctorControls
+                  doctor={doctorQueue.doctor}
+                  currentPatient={currentPatient}
+                  stats={stats}
+                  isAvailable={doctorQueue.doctor.isAvailable ?? false}
+                  onCallNext={handleCallNext}
+                  onCompleteConsultation={handleCompleteConsultation}
+                  onCancelConsultation={handleCancelConsultation}
+                  onToggleAvailability={() => toggleAvailabilityMutation.mutate()}
+                  isPending={callNextMutation.isPending || completeConsultationMutation.isPending || cancelConsultationMutation.isPending}
+                />
+              )}
+            </div>
+            
             <div>
-              <CardTitle>Waiting Queue</CardTitle>
-              <CardDescription>
-                {filteredQueueItems.length} patients waiting
-              </CardDescription>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Search patients..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 pr-4 py-2"
-                />
-              </div>
-              <div className="flex border border-gray-300 rounded-lg overflow-hidden">
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className="px-3 py-1 h-9"
-                >
-                  <List className="h-4 w-4 mr-1" />
-                  List
-                </Button>
-                <Button
-                  variant={viewMode === 'cards' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('cards')}
-                  className="px-3 py-1 h-9"
-                >
-                  <Grid className="h-4 w-4 mr-1" />
-                  Cards
-                </Button>
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upcoming Appointments</CardTitle>
+                  <CardDescription>
+                    Next 3 scheduled appointments
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 pt-0 pb-4">
+                  <div className="space-y-3">
+                    {getUpcomingAppointments().map((appointment, index) => (
+                      <div key={appointment.id} className="flex items-center p-2 rounded-lg hover:bg-gray-50">
+                        <div className="flex-shrink-0 mr-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                            {appointment.patientName.charAt(0)}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">
+                            {appointment.patientName}
+                          </p>
+                          <div className="flex items-center text-sm text-gray-500">
+                            <Calendar className="mr-1 h-3 w-3" />
+                            {appointment.date} • {appointment.time}
+                          </div>
+                        </div>
+                        <Badge variant={appointment.type === 'new' ? 'default' : 'secondary'}>
+                          {appointment.type === 'new' ? 'New' : 'Follow-up'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+                <CardFooter className="border-t bg-gray-50 rounded-b-lg">
+                  <Button variant="link" className="w-full text-sm">View All Appointments</Button>
+                </CardFooter>
+              </Card>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          {/* Queue Filter Tabs */}
-          <Tabs defaultValue="all" className="mb-4">
-            <TabsList>
-              <TabsTrigger value="all" className="flex items-center">
-                All Patients
-                <span className="ml-1 bg-primary-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                  {filteredQueueItems.length}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="regular" className="flex items-center">
-                Regular
-                <span className="ml-1 bg-gray-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                  {filteredQueueItems.filter(item => item.priorityLevel === 'normal').length}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="priority" className="flex items-center">
-                Priority
-                <span className="ml-1 bg-amber-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                  {filteredQueueItems.filter(item => item.priorityLevel === 'priority').length}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="urgent" className="flex items-center">
-                Urgent
-                <span className="ml-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                  {filteredQueueItems.filter(item => item.priorityLevel === 'urgent').length}
-                </span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          
+          {/* Queue Management Section */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Waiting Queue</CardTitle>
+                  <CardDescription>
+                    {filteredQueueItems.length} patients waiting
+                  </CardDescription>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search patients..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-8 pr-4 py-2"
+                    />
+                  </div>
+                  <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+                    <Button
+                      variant={viewMode === 'list' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('list')}
+                      className="px-3 py-1 h-9"
+                    >
+                      <List className="h-4 w-4 mr-1" />
+                      List
+                    </Button>
+                    <Button
+                      variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('cards')}
+                      className="px-3 py-1 h-9"
+                    >
+                      <Grid className="h-4 w-4 mr-1" />
+                      Cards
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Queue Filter Tabs */}
+              <Tabs defaultValue="all" className="mb-4">
+                <TabsList>
+                  <TabsTrigger value="all" className="flex items-center">
+                    All Patients
+                    <span className="ml-1 bg-primary-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                      {waitingCounts.total}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="regular" className="flex items-center">
+                    Regular
+                    <span className="ml-1 bg-gray-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                      {waitingCounts.normal}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="priority" className="flex items-center">
+                    Priority
+                    <span className="ml-1 bg-amber-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                      {waitingCounts.priority}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="urgent" className="flex items-center">
+                    Urgent
+                    <span className="ml-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                      {waitingCounts.urgent}
+                    </span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-          {/* Queue Items List */}
-          <div className="space-y-3">
-            {filteredQueueItems.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No patients in queue</p>
+              {/* Queue Items List */}
+              <div className="space-y-3">
+                {filteredQueueItems.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No patients in queue</p>
+                  </div>
+                ) : (
+                  filteredQueueItems.map((item, index) => (
+                    <QueueItem
+                      key={item.id}
+                      queueItem={item}
+                      position={index + 1}
+                      waitTime={getWaitTimeDisplay(item)}
+                      estimatedTime={getEstimatedTime(item)}
+                      onCallNow={() => {
+                        if (currentPatient) {
+                          toast({
+                            title: 'Cannot call patient',
+                            description: 'There is already a patient in consultation.',
+                            variant: 'destructive',
+                          });
+                        } else {
+                          // In a real app, we would have an API to call a specific patient
+                          // For now, we'll just use the call next feature
+                          handleCallNext();
+                        }
+                      }}
+                      viewMode={viewMode}
+                    />
+                  ))
+                )}
               </div>
-            ) : (
-              filteredQueueItems.map((item, index) => (
-                <QueueItem
-                  key={item.id}
-                  queueItem={item}
-                  position={index + 1}
-                  waitTime={getWaitTimeDisplay(item)}
-                  estimatedTime={getEstimatedTime(item)}
-                  onCallNow={() => {
-                    if (currentPatient) {
-                      toast({
-                        title: 'Cannot call patient',
-                        description: 'There is already a patient in consultation.',
-                        variant: 'destructive',
-                      });
-                    } else {
-                      // In a real app, we would have an API to call a specific patient
-                      // For now, we'll just use the call next feature
-                      handleCallNext();
-                    }
-                  }}
-                  viewMode={viewMode}
-                />
-              ))
-            )}
-          </div>
 
-          {/* Pagination (simplified) */}
-          {filteredQueueItems.length > 0 && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-gray-600">
-                Showing <span className="font-medium">1-{filteredQueueItems.length}</span> of{' '}
-                <span className="font-medium">{filteredQueueItems.length}</span> patients
-              </div>
-              <div className="flex space-x-1">
-                <Button variant="outline" size="sm" disabled>
-                  <span className="sr-only">Previous page</span>
-                  ← Previous
-                </Button>
-                <Button variant="outline" size="sm" disabled>
-                  <span className="sr-only">Next page</span>
-                  Next →
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              {/* Pagination (simplified) */}
+              {filteredQueueItems.length > 0 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-600">
+                    Showing <span className="font-medium">1-{filteredQueueItems.length}</span> of{' '}
+                    <span className="font-medium">{filteredQueueItems.length}</span> patients
+                  </div>
+                  <div className="flex space-x-1">
+                    <Button variant="outline" size="sm" disabled>
+                      <span className="sr-only">Previous page</span>
+                      ← Previous
+                    </Button>
+                    <Button variant="outline" size="sm" disabled>
+                      <span className="sr-only">Next page</span>
+                      Next →
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Notification Panel */}
       <NotificationPanel

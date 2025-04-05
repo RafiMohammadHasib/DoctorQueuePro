@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import NotFound from "@/pages/not-found";
 import QueueMonitor from "@/pages/QueueMonitor";
 import DoctorDashboard from "@/pages/DoctorDashboard";
+import DoctorPatients from "@/pages/DoctorPatients";
+import DoctorSettings from "@/pages/DoctorSettings";
 import AdminDashboard from "@/pages/AdminDashboard";
 import ReceptionKiosk from "@/pages/ReceptionKiosk";
 import AuthPage from "@/pages/auth-page";
@@ -48,6 +50,8 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/verify-email/:token" component={VerifyEmailPage} />
         <ProtectedRoute path="/doctor" component={DoctorDashboard} requiredRole="doctor" />
+        <ProtectedRoute path="/doctor/patients" component={DoctorPatients} requiredRole="doctor" />
+        <ProtectedRoute path="/doctor/settings" component={DoctorSettings} requiredRole="doctor" />
         <ProtectedRoute path="/admin" component={AdminDashboard} requiredRole="admin" />
         <ProtectedRoute path="/reception" component={ReceptionKiosk} requiredRole="receptionist" />
         <Route path="/monitor" component={QueueMonitor} />
