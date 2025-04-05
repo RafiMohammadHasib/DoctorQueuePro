@@ -176,18 +176,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Resend verification email
       const sent = await emailService.sendVerificationEmail(updatedUser, newVerificationCode);
       
-      if (sent) {
-        return res.status(200).json({ message: 'Verification email sent successfully.' });
-      } else {
-        // If email fails, still return the code to the user
-        return res.status(200).json({ 
-          message: 'Email service unavailable. Use this verification code: ' + newVerificationCode,
-          verificationCode: newVerificationCode 
-        });
-      }
+      // Always return the verification code to make development easier
+      return res.status(200).json({ 
+        message: sent ? 'Verification email sent successfully.' : 'Email service unavailable. Use the verification code below.',
+        verificationCode: newVerificationCode,
+        verificationUrl: `${process.env.BASE_URL || 'http://localhost:5000'}/verify-email/${newVerificationCode}`
+      });
     } catch (error) {
       console.error('Error resending verification email:', error);
       return res.status(500).json({ message: 'An error occurred while resending verification email.' });
+    }
+  });
+  
+  // Development shortcut to bypass email verification
+  app.post('/api/dev/verify-email', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: 'Email is required.' });
+      }
+      
+      // Get user by email
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found with the provided email.' });
+      }
+      
+      if (user.isVerified) {
+        return res.status(200).json({ message: 'Email already verified. You can now log in.' });
+      }
+      
+      // Directly verify the user without email
+      const verifiedUser = await storage.verifyUser(user.id);
+      
+      return res.status(200).json({ 
+        message: 'Email verified successfully via development shortcut. You can now log in.',
+        user: {
+          id: verifiedUser.id,
+          email: verifiedUser.email,
+          isVerified: verifiedUser.isVerified
+        }
+      });
+    } catch (error) {
+      console.error('Error using development verification shortcut:', error);
+      return res.status(500).json({ message: 'An error occurred during verification.' });
     }
   });
 
